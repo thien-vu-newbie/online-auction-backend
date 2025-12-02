@@ -7,8 +7,9 @@ export class RecaptchaService {
 
   async verifyRecaptcha(token: string): Promise<boolean> {
     const secretKey = this.configService.get<string>('RECAPTCHA_SECRET_KEY');
-    // Kiểm tra nếu không có secret key
-    if (!secretKey || secretKey === '6LeMExssAAAAAOOVpjNnKpiH1o3-dYImaj7ozFF4') {
+    
+    // Kiểm tra nếu không có secret key hoặc đang dùng test key của Google
+    if (!secretKey || secretKey === '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe') {
       console.log('⚠️  reCAPTCHA not configured - skipping verification');
       return true;
     }

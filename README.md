@@ -1,48 +1,113 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Online Auction Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend API cho hệ thống đấu giá trực tuyến, xây dựng với NestJS framework.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Cài đặt
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+### 1. Clone repository và cài đặt dependencies
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+### 2. Cấu hình Environment Variables
+
+Tạo file `.env` từ template:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cp .env.example .env
 ```
+
+Cập nhật các giá trị trong `.env`:
+
+```env
+# Required
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/online-auction
+JWT_SECRET=your_strong_secret_key
+JWT_REFRESH_SECRET=your_refresh_token_secret
+RECAPTCHA_SECRET_KEY=your_recaptcha_secret
+
+# Optional (for Google OAuth)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# Optional (for email - will log to console if not set)
+MAIL_USER=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+```
+
+### 3. Khởi động MongoDB
+
+```bash
+# Sử dụng Docker (recommended)
+docker run -d -p 27017:27017 --name mongodb mongo:latest
+
+# Hoặc cài đặt MongoDB local
+# https://www.mongodb.com/docs/manual/installation/
+```
+
+### 4. Chạy ứng dụng
+
+```bash
+# Development mode với hot-reload
+npm run start:dev
+
+# Production mode
+npm run build
+npm run start:prod
+```
+
+Ứng dụng sẽ chạy tại:
+- API: `http://localhost:3000`
+- Swagger Docs: `http://localhost:3000/api`
+
+## 📚 API Documentation
+
+### Swagger UI
+Truy cập Swagger documentation tại: `http://localhost:3000/api`
+
+Swagger cung cấp:
+- Interactive API testing
+- Request/Response schemas
+- Authentication flow với JWT Bearer token
+- Đầy đủ mô tả cho tất cả endpoints
+
+## 🧪 Testing API
+
+### Sử dụng Swagger UI (Recommended)
+1. Truy cập `http://localhost:3000/api`
+2. Test các endpoint trực tiếp trên UI
+3. Authenticate bằng cách click "Authorize" và nhập Bearer token
+
+### Sử dụng cURL
+
+```bash
+# Register
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fullName": "Nguyen Van A",
+    "email": "user@example.com",
+    "password": "Password123!",
+    "address": "123 ABC Street",
+    "recaptchaToken": "token_here"
+  }'
+
+# Login
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "Password123!",
+    "recaptchaToken": "token_here"
+  }'
+```
+
+## 📝 Notes
+
+- reCAPTCHA token có thể skip trong development (cần cấu hình)
+
 
 ## Run tests
 
