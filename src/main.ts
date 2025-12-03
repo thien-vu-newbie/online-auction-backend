@@ -3,6 +3,8 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {cors: true});
@@ -11,6 +13,10 @@ async function bootstrap() {
     origin: true,
     credentials: true,
   });
+  
+  // Enable global logging interceptor
+  const logger = app.get(WINSTON_MODULE_PROVIDER);
+  app.useGlobalInterceptors(new LoggingInterceptor(logger));
   
   // Enable validation
   app.useGlobalPipes(new ValidationPipe({

@@ -2,9 +2,9 @@
 
 Backend API cho hệ thống đấu giá trực tuyến, xây dựng với NestJS framework.
 
-## 🚀 Cài đặt
+## 🚀 Quick Start
 
-### 1. Clone repository và cài đặt dependencies
+### 1. Cài đặt Dependencies
 
 ```bash
 npm install
@@ -12,128 +12,184 @@ npm install
 
 ### 2. Cấu hình Environment Variables
 
-Tạo file `.env` từ template:
-
-```bash
-cp .env.example .env
-```
-
-Cập nhật các giá trị trong `.env`:
+Tạo file `.env`:
 
 ```env
-# Required
+# Server
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017/online-auction
-JWT_SECRET=your_strong_secret_key
-JWT_REFRESH_SECRET=your_refresh_token_secret
-RECAPTCHA_SECRET_KEY=your_recaptcha_secret
+NODE_ENV=development
 
-# Optional (for Google OAuth)
+# Database
+MONGO_URI=mongodb://localhost:27017/online-auction
+
+# JWT
+JWT_SECRET=your_jwt_secret_key_here
+JWT_REFRESH_SECRET=your_refresh_token_secret_here
+
+# reCAPTCHA (Google)
+RECAPTCHA_SECRET_KEY=your_recaptcha_secret_key
+
+# Google OAuth (Optional)
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
 
-# Optional (for email - will log to console if not set)
+# Email (Optional - sẽ log OTP ra console nếu không config)
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
 MAIL_USER=your-email@gmail.com
 MAIL_PASSWORD=your-app-password
+MAIL_FROM=noreply@auction.com
+
+# ELK Stack - Logging & Monitoring
+ELASTICSEARCH_URL=http://localhost:9200
 ```
 
 ### 3. Khởi động MongoDB
 
 ```bash
-# Sử dụng Docker (recommended)
+# Sử dụng Docker
 docker run -d -p 27017:27017 --name mongodb mongo:latest
 
-# Hoặc cài đặt MongoDB local
-# https://www.mongodb.com/docs/manual/installation/
+# Hoặc cài đặt MongoDB local: https://www.mongodb.com/docs/manual/installation/
 ```
 
-### 4. Chạy ứng dụng
+### 4. Khởi động ELK Stack (Logging & Monitoring)
 
 ```bash
-# Development mode với hot-reload
+# Start Elasticsearch, Kibana, Logstash
+docker-compose up -d
+
+# Verify services
+docker-compose ps
+```
+
+Services sẽ chạy tại:
+- **Elasticsearch**: http://localhost:9200
+- **Kibana**: http://localhost:5601
+
+### 5. Chạy Application
+
+```bash
+# Development với hot-reload
 npm run start:dev
 
-# Production mode
+# Production
 npm run build
 npm run start:prod
 ```
 
-Ứng dụng sẽ chạy tại:
-- API: `http://localhost:3000`
-- Swagger Docs: `http://localhost:3000/api`
+Application chạy tại:
+- **API**: http://localhost:3000
+- **Swagger Docs**: http://localhost:3000/api
+
+## 📊 Logging & Monitoring
+
+### Setup Kibana để xem Logs
+
+1. **Truy cập Kibana**: http://localhost:5601 (đợi ~30s lần đầu)
+
+2. **Tạo Data View**:
+   - Menu ☰ → **Management** → **Stack Management**
+   - Click **Data Views** → **Create data view**
+   - Name: `NestJS Logs`
+   - Index pattern: `nestjs-logs*`
+   - Timestamp field: `@timestamp`
+   - Click **Create data view**
+
+3. **View Logs**:
+   - Menu ☰ → **Analytics** → **Discover**
+   - Select **NestJS Logs**
+   - Set time range: **Last 15 minutes**
+
+### Log Structure
+
+```json
+{
+  "@timestamp": "2025-12-03T02:19:36.178Z",
+  "level": "info",
+  "message": "Incoming Request",
+  "meta": {
+    "context": "HTTPRequest",
+    "method": "POST",
+    "url": "/auth/register",
+    "statusCode": 201,
+    "responseTime": "2551ms",
+    "ip": "::1",
+    "userAgent": "PostmanRuntime/7.49.1"
+  }
+}
+```
+
+### Auto Delete Policy
+
+Logs tự động xóa sau **30 ngày** (ILM policy đã config).
 
 ## 📚 API Documentation
 
 ### Swagger UI
-Truy cập Swagger documentation tại: `http://localhost:3000/api`
 
-Swagger cung cấp:
+Truy cập: http://localhost:3000/api
+
+Features:
 - Interactive API testing
-- Request/Response schemas
-- Authentication flow với JWT Bearer token
-- Đầy đủ mô tả cho tất cả endpoints
+- Request/Response schemas  
+- JWT Authentication flow
+- Mô tả đầy đủ cho tất cả endpoints
 
-## 🧪 Testing API
+## 🔐 Security Features
 
-### Sử dụng Swagger UI (Recommended)
-1. Truy cập `http://localhost:3000/api`
-2. Test các endpoint trực tiếp trên UI
-3. Authenticate bằng cách click "Authorize" và nhập Bearer token
+- ✅ JWT Access Token (30m) + Refresh Token (7d)
+- ✅ Password hashing với bcrypt (10 rounds)
+- ✅ Email OTP verification
+- ✅ reCAPTCHA v2 protection
+- ✅ Google OAuth integration
+- ✅ Refresh token rotation
+- ✅ Input validation trên mọi endpoint
 
-### Sử dụng cURL
+## 🚨 Troubleshooting
+
+### App không start
 
 ```bash
-# Register
-curl -X POST http://localhost:3000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fullName": "Nguyen Van A",
-    "email": "user@example.com",
-    "password": "Password123!",
-    "address": "123 ABC Street",
-    "recaptchaToken": "token_here"
-  }'
+# Check MongoDB
+docker ps | grep mongodb
 
-# Login
-curl -X POST http://localhost:3000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "Password123!",
-    "recaptchaToken": "token_here"
-  }'
+# Check ports
+netstat -ano | findstr :3000
+netstat -ano | findstr :27017
+
+# Clear node_modules
+rm -rf node_modules package-lock.json
+npm install
 ```
+
+### Logs không hiển thị trong Kibana
+
+```bash
+# Check Elasticsearch health
+curl http://localhost:9200/_cluster/health
+
+# Check indices
+curl http://localhost:9200/_cat/indices?v
+
+# Restart ELK stack
+docker-compose restart
+```
+
+### Email không gửi
+
+- Kiểm tra `MAIL_USER` và `MAIL_PASSWORD` trong `.env`
+- Nếu dùng Gmail: bật 2FA và tạo App Password
+- Development: OTP sẽ log ra console nếu email chưa config
 
 ## 📝 Notes
 
-- reCAPTCHA token có thể skip trong development (cần cấu hình)
-
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+- Test reCAPTCHA key: `6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe` (Google test key)
+- MongoDB local: `mongodb://localhost:27017/online-auction`
+- JWT access token expires: 30 minutes
+- JWT refresh token expires: 7 days
+- Logs auto-delete: 30 days (ILM policy)
 
 ## Resources
 
