@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 import { AuthModule } from './auth/auth.module';
+import { LoggerModule } from './logger/logger.module';
 
 
 @Module({
@@ -19,6 +20,7 @@ import { AuthModule } from './auth/auth.module';
         uri: config.get<string>('MONGO_URI'),
       }),
     }),
+    LoggerModule,
     AuthModule,
   ],
   controllers: [AppController],
