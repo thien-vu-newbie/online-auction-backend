@@ -59,7 +59,13 @@ export class User {
   isRequestingSellerUpgrade: boolean;
 
   @Prop()
-  sellerUpgradeExpiry?: Date;
+  sellerUpgradeExpiry?: Date; // Admin set thời điểm phân quyền + 7 ngày
+
+  // Helper method to check if seller permission is still valid
+  get isActiveSeller(): boolean {
+    if (!this.sellerUpgradeExpiry) return false;
+    return new Date() < this.sellerUpgradeExpiry;
+  }
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

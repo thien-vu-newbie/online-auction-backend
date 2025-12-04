@@ -11,9 +11,4 @@ export class LoginDto {
   @IsNotEmpty()
   @IsString()
   password: string;
-
-  @ApiProperty({ example: 'recaptcha_token_here', description: 'reCAPTCHA token' })
-  @IsNotEmpty()
-  @IsString()
-  recaptchaToken: string;
 }

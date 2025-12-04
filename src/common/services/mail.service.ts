@@ -29,7 +29,7 @@ export class MailService {
   }
 
   async sendOTP(email: string, otp: string) {
-    // Nếu không có transporter, skip
+    // Nếu không có transporter, log OTP ra console
     if (!this.transporter) {
       console.log(`⚠️  Email not configured - OTP for ${email} is: ${otp}`);
       return;
@@ -49,9 +49,9 @@ export class MailService {
   }
 
   async sendPasswordResetOTP(email: string, otp: string) {
-    // Nếu không có transporter, skip
+    // Nếu không có transporter, log OTP ra console
     if (!this.transporter) {
-      console.log('⚠️  Email not configured - skipping password reset email');
+      console.log(`⚠️  Email not configured - Password reset OTP for ${email} is: ${otp}`);
       return;
     }
 
