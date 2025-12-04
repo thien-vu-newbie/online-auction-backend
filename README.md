@@ -134,18 +134,7 @@ Truy cập: http://localhost:3000/api
 Features:
 - Interactive API testing
 - Request/Response schemas  
-- JWT Authentication flow
 - Mô tả đầy đủ cho tất cả endpoints
-
-## 🔐 Security Features
-
-- ✅ JWT Access Token (30m) + Refresh Token (7d)
-- ✅ Password hashing với bcrypt (10 rounds)
-- ✅ Email OTP verification
-- ✅ reCAPTCHA v2 protection
-- ✅ Google OAuth integration
-- ✅ Refresh token rotation
-- ✅ Input validation trên mọi endpoint
 
 ## 🚨 Troubleshooting
 

@@ -34,7 +34,7 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_SECRET,
-        expiresIn: '30m', // Access token expires in 30 minutes
+        expiresIn: '1d', // Access token expires in 1 day
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
@@ -198,9 +198,6 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    // Verify reCAPTCHA
-    await this.recaptchaService.verifyRecaptcha(loginDto.recaptchaToken);
-
     const user = await this.userModel.findOne({ 
       email: loginDto.email 
     });
@@ -298,7 +295,6 @@ export class AuthService {
     };
   }
 
-  // Mục 5.4 - Quên mật khẩu
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
     const user = await this.userModel.findOne({ 
       email: forgotPasswordDto.email 
@@ -435,7 +431,6 @@ export class AuthService {
     };
   }
 
-  // Mục 5.3 - Đổi mật khẩu (yêu cầu nhập mật khẩu cũ)
   async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
     const user = await this.userModel.findById(userId);
 

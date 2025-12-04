@@ -47,19 +47,25 @@ export class User {
   @Prop()
   refreshToken?: string;
 
-  // Rating system (mục 2.2, 2.5, 3.5)
+  // Rating system
   @Prop({ default: 0 })
   ratingPositive: number;
 
   @Prop({ default: 0 })
   ratingNegative: number;
 
-  // Seller upgrade request (mục 2.6)
+  // Seller upgrade request
   @Prop({ default: false })
   isRequestingSellerUpgrade: boolean;
 
   @Prop()
-  sellerUpgradeExpiry?: Date;
+  sellerUpgradeExpiry?: Date; // Admin set thời điểm phân quyền + 7 ngày
+
+  // Helper method to check if seller permission is still valid
+  get isActiveSeller(): boolean {
+    if (!this.sellerUpgradeExpiry) return false;
+    return new Date() < this.sellerUpgradeExpiry;
+  }
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
