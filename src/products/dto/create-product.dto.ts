@@ -86,6 +86,4 @@ export class CreateProductDto {
   @IsBoolean()
   @Type(() => Boolean)
   allowUnratedBidders?: boolean;
-
-  // Note: Images sẽ upload qua FormData với Multer, không nằm trong DTO này
 }

@@ -69,4 +69,242 @@ export class MailService {
       `,
     });
   }
+
+  // ============= AUCTION EMAIL NOTIFICATIONS =============
+
+  async sendBidPlacedToSeller(data: {
+    sellerEmail: string;
+    sellerName: string;
+    productName: string;
+    bidderName: string;
+    bidAmount: number;
+    currentPrice: number;
+  }) {
+    if (!this.transporter) {
+      console.log(`📧 [Bid Placed - Seller] ${data.sellerEmail}: Product "${data.productName}" - New bid ${data.bidAmount} by ${data.bidderName}`);
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.sellerEmail,
+      subject: `New Bid on Your Product: ${data.productName}`,
+      html: `
+        <h2>New Bid Placed!</h2>
+        <p>Hello ${data.sellerName},</p>
+        <p>Good news! Someone just placed a bid on your product.</p>
+        
+        <div style="background-color: #f5f5f5; padding: 15px; margin: 20px 0;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Bidder:</strong> ${data.bidderName}<br>
+          <strong>Bid Amount:</strong> ${data.bidAmount.toLocaleString()} VND<br>
+          <strong>Current Price:</strong> ${data.currentPrice.toLocaleString()} VND
+        </div>
+
+        <p>Thank you for using our auction platform!</p>
+      `,
+    });
+  }
+
+  async sendBidPlacedToBidder(data: {
+    bidderEmail: string;
+    bidderName: string;
+    productName: string;
+    bidAmount: number;
+    currentPrice: number;
+  }) {
+    if (!this.transporter) {
+      console.log(`📧 [Bid Placed - Bidder] ${data.bidderEmail}: Bid ${data.bidAmount} on "${data.productName}"`);
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.bidderEmail,
+      subject: `Bid Confirmation: ${data.productName}`,
+      html: `
+        <h2>Bid Placed Successfully!</h2>
+        <p>Hello ${data.bidderName},</p>
+        <p>Your bid has been placed successfully.</p>
+        
+        <div style="background-color: #f5f5f5; padding: 15px; margin: 20px 0;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Your Bid:</strong> ${data.bidAmount.toLocaleString()} VND<br>
+          <strong>Current Price:</strong> ${data.currentPrice.toLocaleString()} VND
+        </div>
+
+        <p>Good luck with your bid!</p>
+      `,
+    });
+  }
+
+  async sendOutbidNotification(data: {
+    previousBidderEmail: string;
+    previousBidderName: string;
+    productName: string;
+    previousBidAmount: number;
+    newBidAmount: number;
+    currentPrice: number;
+  }) {
+    if (!this.transporter) {
+      console.log(`📧 [Outbid] ${data.previousBidderEmail}: Outbid on "${data.productName}" - Was ${data.previousBidAmount}, now ${data.newBidAmount}`);
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.previousBidderEmail,
+      subject: `You've Been Outbid: ${data.productName}`,
+      html: `
+        <h2>You've Been Outbid!</h2>
+        <p>Hello ${data.previousBidderName},</p>
+        <p>Unfortunately, someone has placed a higher bid on the product you were winning.</p>
+        
+        <div style="background-color: #fff3cd; padding: 15px; margin: 20px 0; border-left: 4px solid #ffc107;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Your Previous Bid:</strong> ${data.previousBidAmount.toLocaleString()} VND<br>
+          <strong>New Bid:</strong> ${data.newBidAmount.toLocaleString()} VND<br>
+          <strong>Current Price:</strong> ${data.currentPrice.toLocaleString()} VND
+        </div>
+
+        <p>If you're still interested, you can place a higher bid to stay in the game!</p>
+      `,
+    });
+  }
+
+  async sendBidderRejected(data: {
+    bidderEmail: string;
+    bidderName: string;
+    productName: string;
+    sellerName: string;
+  }) {
+    if (!this.transporter) {
+      console.log(`📧 [Bidder Rejected] ${data.bidderEmail}: Rejected from "${data.productName}" by ${data.sellerName}`);
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.bidderEmail,
+      subject: `Bidding Rejected: ${data.productName}`,
+      html: `
+        <h2>Bidding Not Allowed</h2>
+        <p>Hello ${data.bidderName},</p>
+        <p>We regret to inform you that the seller has rejected your participation in this auction.</p>
+        
+        <div style="background-color: #f8d7da; padding: 15px; margin: 20px 0; border-left: 4px solid #dc3545;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Seller:</strong> ${data.sellerName}
+        </div>
+
+        <p>You can no longer place bids on this product. Please explore other available auctions.</p>
+      `,
+    });
+  }
+
+  async sendAuctionEndedNoBidder(data: {
+    sellerEmail: string;
+    sellerName: string;
+    productName: string;
+    startPrice: number;
+    endTime: Date;
+  }) {
+    if (!this.transporter) {
+      console.log(`📧 [Auction Ended - No Bidder] ${data.sellerEmail}: "${data.productName}" ended with no bids`);
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.sellerEmail,
+      subject: `Auction Ended Without Bids: ${data.productName}`,
+      html: `
+        <h2>Auction Ended</h2>
+        <p>Hello ${data.sellerName},</p>
+        <p>Your auction has ended, but unfortunately no one placed a bid.</p>
+        
+        <div style="background-color: #f5f5f5; padding: 15px; margin: 20px 0;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Start Price:</strong> ${data.startPrice.toLocaleString()} VND<br>
+          <strong>Ended At:</strong> ${data.endTime.toLocaleString('vi-VN')}
+        </div>
+
+        <p>You may consider relisting this product with adjusted pricing or better description.</p>
+      `,
+    });
+  }
+
+  async sendAuctionEndedToSeller(data: {
+    sellerEmail: string;
+    sellerName: string;
+    productName: string;
+    finalPrice: number;
+    winnerName: string;
+    winnerEmail: string;
+    endTime: Date;
+  }) {
+    if (!this.transporter) {
+      console.log(`📧 [Auction Ended - Seller] ${data.sellerEmail}: "${data.productName}" sold for ${data.finalPrice} to ${data.winnerName}`);
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.sellerEmail,
+      subject: `Auction Ended - Product Sold: ${data.productName}`,
+      html: `
+        <h2>Congratulations! Your Product Has Been Sold!</h2>
+        <p>Hello ${data.sellerName},</p>
+        <p>Great news! Your auction has ended successfully with a winning bidder.</p>
+        
+        <div style="background-color: #d4edda; padding: 15px; margin: 20px 0; border-left: 4px solid #28a745;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Final Price:</strong> ${data.finalPrice.toLocaleString()} VND<br>
+          <strong>Winner:</strong> ${data.winnerName}<br>
+          <strong>Winner Email:</strong> ${data.winnerEmail}<br>
+          <strong>Ended At:</strong> ${data.endTime.toLocaleString('vi-VN')}
+        </div>
+
+        <p>Please contact the buyer to arrange payment and delivery.</p>
+        <p>Thank you for using our auction platform!</p>
+      `,
+    });
+  }
+
+  async sendAuctionEndedToWinner(data: {
+    winnerEmail: string;
+    winnerName: string;
+    productName: string;
+    finalPrice: number;
+    sellerName: string;
+    sellerEmail: string;
+    endTime: Date;
+  }) {
+    if (!this.transporter) {
+      console.log(`📧 [Auction Ended - Winner] ${data.winnerEmail}: Won "${data.productName}" for ${data.finalPrice}`);
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.winnerEmail,
+      subject: `Congratulations! You Won: ${data.productName}`,
+      html: `
+        <h2>Congratulations! You Won the Auction!</h2>
+        <p>Hello ${data.winnerName},</p>
+        <p>You are the winning bidder for this auction!</p>
+        
+        <div style="background-color: #d4edda; padding: 15px; margin: 20px 0; border-left: 4px solid #28a745;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Final Price:</strong> ${data.finalPrice.toLocaleString()} VND<br>
+          <strong>Seller:</strong> ${data.sellerName}<br>
+          <strong>Seller Email:</strong> ${data.sellerEmail}<br>
+          <strong>Ended At:</strong> ${data.endTime.toLocaleString('vi-VN')}
+        </div>
+
+        <p>Please contact the seller to arrange payment and delivery details.</p>
+        <p>Thank you for using our auction platform!</p>
+      `,
+    });
+  }
 }

@@ -17,14 +17,14 @@ export class Product {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   sellerId: Types.ObjectId;
 
-  // Images - Cloudinary URLs (mục 3.1 - tối thiểu 3 ảnh)
+  // Images - Cloudinary URLs (tối thiểu 3 ảnh)
   @Prop({ required: true })
   thumbnail: string; // Cloudinary URL
 
   @Prop({ type: [String], required: true })
   images: string[]; // Array of Cloudinary URLs (minimum 3)
 
-  // Pricing (mục 3.1)
+  // Pricing
   @Prop({ required: true })
   startPrice: number; // Giá khởi điểm
 
@@ -49,25 +49,25 @@ export class Product {
 
   // Seller settings (mục 2.2)
   @Prop({ default: false })
-  allowUnratedBidders: boolean; // Cho phép bidder chưa có rating đấu giá
+  allowUnratedBidders: boolean; // Cho phép bidder có rating dưới 80% đấu giá
 
   // Auction status
   @Prop({ 
     type: String, 
-    enum: ['active', 'completed', 'cancelled'], 
+    enum: ['active', 'sold', 'expired', 'cancelled'], 
     default: 'active' 
   })
-  status: string;
+  status: string; // active: đang đấu giá | sold: có người thắng | expired: hết hạn không có bid | cancelled: seller hủy
 
-  // Current winner (mục 1.5)
+  // Current winner
   @Prop({ type: Types.ObjectId, ref: 'User' })
   currentWinnerId?: Types.ObjectId;
 
-  // Stats (mục 1.2 - top 5)
+  // Stats
   @Prop({ default: 0 })
   bidCount: number;
 
-  // Mục 3.3 - từ chối bidder
+  // Từ chối bidder
   @Prop({ type: [Types.ObjectId], default: [] })
   rejectedBidders: Types.ObjectId[];
 }

@@ -114,7 +114,7 @@ export class CategoriesService {
       throw new NotFoundException('Category not found');
     }
 
-    // Mục 4.1 - Không được xóa category đã có sản phẩm
+    // Không được xóa category đã có sản phẩm
     if (category.productCount > 0) {
       throw new BadRequestException(
         `Cannot delete category with ${category.productCount} product(s). Remove products first.`

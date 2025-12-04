@@ -295,7 +295,6 @@ export class AuthService {
     };
   }
 
-  // Mục 5.4 - Quên mật khẩu
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
     const user = await this.userModel.findOne({ 
       email: forgotPasswordDto.email 
@@ -432,7 +431,6 @@ export class AuthService {
     };
   }
 
-  // Mục 5.3 - Đổi mật khẩu (yêu cầu nhập mật khẩu cũ)
   async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
     const user = await this.userModel.findById(userId);
 

@@ -34,7 +34,7 @@ export class CategoriesController {
   }
 
   @Get()
-  @ApiOperation({ summary: '[PUBLIC] Lấy danh sách categories', description: 'Hiển thị 2-level hierarchy cho menu (mục 1.1)' })
+  @ApiOperation({ summary: '[PUBLIC] Lấy danh sách categories', description: 'Hiển thị 2-level hierarchy cho menu' })
   @ApiResponse({ status: 200, description: 'List of categories with children' })
   findAll() {
     return this.categoriesService.findAll();
@@ -67,7 +67,7 @@ export class CategoriesController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: '[ADMIN] Xóa category', 
-    description: 'Mục 4.1 - Không được xóa category đã có sản phẩm hoặc có subcategories' 
+    description: 'Không được xóa category đã có sản phẩm hoặc có subcategories' 
   })
   @ApiResponse({ status: 200, description: 'Category deleted successfully' })
   @ApiResponse({ status: 400, description: 'Category has products or subcategories' })

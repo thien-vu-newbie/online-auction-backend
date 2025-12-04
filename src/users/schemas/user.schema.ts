@@ -47,14 +47,14 @@ export class User {
   @Prop()
   refreshToken?: string;
 
-  // Rating system (mục 2.2, 2.5, 3.5)
+  // Rating system
   @Prop({ default: 0 })
   ratingPositive: number;
 
   @Prop({ default: 0 })
   ratingNegative: number;
 
-  // Seller upgrade request (mục 2.6)
+  // Seller upgrade request
   @Prop({ default: false })
   isRequestingSellerUpgrade: boolean;
 

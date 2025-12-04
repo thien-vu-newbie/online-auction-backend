@@ -43,7 +43,7 @@ export class ProductsController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ 
     summary: '[SELLER] Đăng sản phẩm đấu giá', 
-    description: 'Mục 3.1 - Seller tạo sản phẩm với tối thiểu 3 ảnh, upload lên Cloudinary' 
+    description: 'Seller tạo sản phẩm với tối thiểu 3 ảnh, upload lên Cloudinary' 
   })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid data or missing images' })
@@ -64,7 +64,7 @@ export class ProductsController {
   @Get('category/:categoryId')
   @ApiOperation({ 
     summary: '[PUBLIC] Xem danh sách sản phẩm theo category', 
-    description: 'Mục 1.3 - Hiển thị sản phẩm theo danh mục với phân trang' 
+    description: 'Hiển thị sản phẩm theo danh mục với phân trang' 
   })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
@@ -84,7 +84,7 @@ export class ProductsController {
   @Get(':id')
   @ApiOperation({ 
     summary: '[PUBLIC] Xem chi tiết sản phẩm', 
-    description: 'Mục 1.5 - Hiển thị đầy đủ thông tin sản phẩm + lịch sử mô tả + 5 sản phẩm liên quan' 
+    description: 'Hiển thị đầy đủ thông tin sản phẩm + lịch sử mô tả + 5 sản phẩm liên quan' 
   })
   @ApiResponse({ status: 200, description: 'Product details with description history and related products' })
   @ApiResponse({ status: 404, description: 'Product not found' })
@@ -119,7 +119,7 @@ export class ProductsController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: '[SELLER] Bổ sung mô tả sản phẩm', 
-    description: 'Mục 3.2 - Append mô tả mới vào mô tả cũ, lưu lịch sử' 
+    description: 'Append mô tả mới vào mô tả cũ, lưu lịch sử' 
   })
   @ApiResponse({ status: 200, description: 'Description added successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden - Not product owner' })
@@ -139,7 +139,7 @@ export class ProductsController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: '[ADMIN] Gỡ bỏ sản phẩm', 
-    description: 'Mục 4.2 - Admin xóa sản phẩm và xóa ảnh trên Cloudinary' 
+    description: 'Admin xóa sản phẩm và xóa ảnh trên Cloudinary' 
   })
   @ApiResponse({ status: 200, description: 'Product removed successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })

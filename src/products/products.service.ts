@@ -24,7 +24,6 @@ export class ProductsService {
     private categoriesService: CategoriesService,
   ) {}
 
-  // Mục 3.1 - Seller đăng sản phẩm đấu giá
   async create(
     createProductDto: CreateProductDto,
     sellerId: string,
@@ -86,7 +85,6 @@ export class ProductsService {
     return savedProduct;
   }
 
-  // Mục 1.3 - Public: Xem danh sách sản phẩm theo category (có phân trang)
   async findByCategory(
     categoryId: string,
     page: number = 1,
@@ -127,7 +125,6 @@ export class ProductsService {
     };
   }
 
-  // Mục 1.5 - Public: Xem chi tiết sản phẩm
   async findOne(id: string): Promise<any> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid product ID');
@@ -144,13 +141,13 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    // Lấy lịch sử bổ sung mô tả (mục 3.2)
+    // Lấy lịch sử bổ sung mô tả
     const descriptionHistory = await this.descriptionHistoryModel
-      .find({ productId: new Types.ObjectId(id) })
+      .find({ productId: product._id })
       .sort({ addedAt: 1 })
       .lean();
 
-    // Lấy 5 sản phẩm khác cùng chuyên mục (mục 1.5)
+    // Lấy 5 sản phẩm khác cùng chuyên mục
     const relatedProducts = await this.productModel
       .find({
         categoryId: product.categoryId,
@@ -209,7 +206,6 @@ export class ProductsService {
     return updatedProduct!;
   }
 
-  // Mục 3.2 - Seller: Bổ sung mô tả sản phẩm (append, không replace)
   async addDescription(
     productId: string,
     addDescriptionDto: AddDescriptionDto,
@@ -248,7 +244,6 @@ export class ProductsService {
     };
   }
 
-  // Admin: Gỡ bỏ sản phẩm (mục 4.2)
   async remove(id: string): Promise<{ message: string }> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid product ID');

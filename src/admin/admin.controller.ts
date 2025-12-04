@@ -17,7 +17,7 @@ export class AdminController {
   @Post('upgrade-seller')
   @ApiOperation({ 
     summary: '[ADMIN] Nâng cấp user lên seller', 
-    description: 'Mục 4.1 - Admin cấp quyền seller cho user với thời hạn' 
+    description: 'Admin cấp quyền seller cho user với thời hạn' 
   })
   @ApiResponse({ status: 200, description: 'User upgraded to seller successfully' })
   @ApiResponse({ status: 400, description: 'Cannot upgrade admin or invalid user' })
@@ -30,7 +30,7 @@ export class AdminController {
   @Get('users')
   @ApiOperation({ 
     summary: '[ADMIN] Xem danh sách tất cả users', 
-    description: 'Mục 4.3 - Quản lý user với phân trang' 
+    description: 'Quản lý user với phân trang' 
   })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
