@@ -3,6 +3,7 @@ import {
   NotFoundException, 
   BadRequestException,
   ForbiddenException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -11,18 +12,26 @@ import { DescriptionHistory, DescriptionHistoryDocument } from './schemas/descri
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AddDescriptionDto } from './dto/add-description.dto';
+import { SearchProductDto, SortBy } from './dto/search-product.dto';
 import { CloudinaryService } from '../common/services/cloudinary.service';
 import { CategoriesService } from '../categories/categories.service';
+import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
 
 @Injectable()
-export class ProductsService {
+export class ProductsService implements OnModuleInit {
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(DescriptionHistory.name) 
     private descriptionHistoryModel: Model<DescriptionHistoryDocument>,
     private cloudinaryService: CloudinaryService,
     private categoriesService: CategoriesService,
+    private elasticsearchService: ElasticsearchService,
   ) {}
+
+  async onModuleInit() {
+    // Create Elasticsearch index on startup
+    await this.elasticsearchService.createIndex();
+  }
 
   async create(
     createProductDto: CreateProductDto,
@@ -77,12 +86,101 @@ export class ProductsService {
       endTime,
     });
 
+    // Hooks tự động sync Elasticsearch
     const savedProduct = await product.save();
 
     // Increment category product count
     await this.categoriesService.incrementProductCount(createProductDto.categoryId);
 
     return savedProduct;
+  }
+
+  // Homepage: Top 5 sản phẩm gần kết thúc
+  async getTopEndingSoon(limit: number = 5): Promise<Product[]> {
+    const now = new Date();
+    return this.productModel
+      .find({
+        status: 'active',
+        endTime: { $gt: now },
+      })
+      .populate('sellerId', 'fullName ratingPositive ratingNegative')
+      .populate('currentWinnerId', 'fullName')
+      .populate('categoryId', 'name')
+      .sort({ endTime: 1 }) // Sắp xếp theo thời gian kết thúc tăng dần
+      .limit(limit)
+      .lean();
+  }
+
+  // Homepage: Top 5 sản phẩm nhiều lượt bid nhất
+  async getTopMostBids(limit: number = 5): Promise<Product[]> {
+    return this.productModel
+      .find({ status: 'active' })
+      .populate('sellerId', 'fullName ratingPositive ratingNegative')
+      .populate('currentWinnerId', 'fullName')
+      .populate('categoryId', 'name')
+      .sort({ bidCount: -1 }) // Sắp xếp theo bidCount giảm dần
+      .limit(limit)
+      .lean();
+  }
+
+  // Homepage: Top 5 sản phẩm giá cao nhất
+  async getTopHighestPrice(limit: number = 5): Promise<Product[]> {
+    return this.productModel
+      .find({ status: 'active' })
+      .populate('sellerId', 'fullName ratingPositive ratingNegative')
+      .populate('currentWinnerId', 'fullName')
+      .populate('categoryId', 'name')
+      .sort({ currentPrice: -1 }) // Sắp xếp theo giá giảm dần
+      .limit(limit)
+      .lean();
+  }
+
+  // Elasticsearch search với tiếng Việt
+  async search(searchDto: SearchProductDto): Promise<{
+    products: any[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    const {
+      name,
+      categoryId,
+      sortBy = SortBy.CREATED_DESC,
+      page = 1,
+      limit = 10,
+    } = searchDto;
+
+    // Search using Elasticsearch
+    const { products: esProducts, total } = await this.elasticsearchService.search({
+      query: name,
+      categoryId,
+      sortBy,
+      page,
+      limit,
+    });
+
+    // Get full product details from MongoDB
+    const productIds = esProducts.map(p => new Types.ObjectId(p.id || p._id));
+    
+    const products = await this.productModel
+      .find({ _id: { $in: productIds } })
+      .populate('sellerId', 'fullName ratingPositive ratingNegative')
+      .populate('currentWinnerId', 'fullName')
+      .populate('categoryId', 'name')
+      .lean();
+
+    // Maintain Elasticsearch order
+    const productMap = new Map(products.map(p => [p._id.toString(), p]));
+    const orderedProducts = productIds
+      .map(id => productMap.get(id.toString()))
+      .filter(p => p);
+
+    return {
+      products: orderedProducts,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findByCategory(
@@ -201,7 +299,16 @@ export class ProductsService {
       id,
       updateProductDto,
       { new: true },
-    );
+    )
+      .populate('sellerId', 'fullName ratingPositive ratingNegative')
+      .populate('currentWinnerId', 'fullName')
+      .populate('categoryId', 'name')
+      .lean();
+
+    // Update in Elasticsearch
+    if (updatedProduct) {
+      await this.elasticsearchService.updateProduct(id, updatedProduct as any);
+    }
 
     return updatedProduct!;
   }
@@ -236,6 +343,8 @@ export class ProductsService {
 
     // Append vào description hiện tại
     product.description += `\n\n<hr>\n<p><em>Bổ sung ${new Date().toLocaleDateString('vi-VN')}</em></p>\n${addDescriptionDto.content}`;
+    
+    // Hooks tự động sync Elasticsearch
     await product.save();
 
     return {
@@ -271,13 +380,13 @@ export class ProductsService {
     // Decrement category product count
     await this.categoriesService.decrementProductCount(product.categoryId.toString());
 
-    // Delete product
+    // Delete product - hooks tự động xóa khỏi Elasticsearch
     await this.productModel.findByIdAndDelete(id);
 
     // Delete description history
     await this.descriptionHistoryModel.deleteMany({ productId: new Types.ObjectId(id) });
 
-    return { message: 'Product removed successfully' };
+    return { message: 'Product deleted successfully' };
   }
 
   // Helper: Check if user is product owner
@@ -285,5 +394,24 @@ export class ProductsService {
     const product = await this.productModel.findById(productId);
     if (!product) return false;
     return product.sellerId.toString() === sellerId;
+  }
+
+  // Migration: Reindex all products to Elasticsearch
+  async reindexElasticsearch(): Promise<{ message: string, indexed: number }> {
+    // Get all active products
+    const products = await this.productModel
+      .find()
+      .populate('sellerId', 'fullName ratingPositive ratingNegative')
+      .populate('currentWinnerId', 'fullName')
+      .populate('categoryId', 'name')
+      .lean();
+
+    // Bulk index to Elasticsearch
+    await this.elasticsearchService.bulkIndex(products as any);
+
+    return {
+      message: `Reindexing completed successfully`,
+      indexed: products.length,
+    };
   }
 }

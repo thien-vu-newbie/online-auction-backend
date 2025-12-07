@@ -47,7 +47,7 @@ export class Product {
   @Prop({ default: false })
   autoExtend: boolean; // Tự động gia hạn khi có bid mới trước khi kết thúc 5 phút
 
-  // Seller settings (mục 2.2)
+  // Seller settings 
   @Prop({ default: false })
   allowUnratedBidders: boolean; // Cho phép bidder có rating dưới 80% đấu giá
 
@@ -82,3 +82,42 @@ ProductSchema.index({ endTime: 1 });
 ProductSchema.index({ currentPrice: 1 });
 ProductSchema.index({ bidCount: 1 });
 ProductSchema.index({ createdAt: 1 });
+
+// ========== ELASTICSEARCH SYNC HOOKS ==========
+// Post-save hook: Sync to Elasticsearch after create/update
+ProductSchema.post('save', async function(doc: ProductDocument) {
+  try {
+    const elasticsearchService = (this.constructor as any).elasticsearchService;
+    if (elasticsearchService) {
+      await elasticsearchService.indexProduct(doc);
+    }
+  } catch (error) {
+    console.error('Error syncing product to Elasticsearch on save:', error);
+  }
+});
+
+// Post-findOneAndUpdate hook: Sync to Elasticsearch after update
+ProductSchema.post('findOneAndUpdate', async function(doc: ProductDocument) {
+  try {
+    if (!doc) return;
+    const elasticsearchService = (this.model as any).elasticsearchService;
+    if (elasticsearchService) {
+      await elasticsearchService.indexProduct(doc);
+    }
+  } catch (error) {
+    console.error('Error syncing product to Elasticsearch on update:', error);
+  }
+});
+
+// Post-findOneAndDelete hook: Delete from Elasticsearch
+ProductSchema.post('findOneAndDelete', async function(doc: ProductDocument) {
+  try {
+    if (!doc) return;
+    const elasticsearchService = (this.model as any).elasticsearchService;
+    if (elasticsearchService) {
+      await elasticsearchService.deleteProduct(doc._id.toString());
+    }
+  } catch (error) {
+    console.error('Error deleting product from Elasticsearch:', error);
+  }
+});

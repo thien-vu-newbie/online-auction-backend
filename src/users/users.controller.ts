@@ -1,7 +1,9 @@
-import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -44,5 +46,33 @@ export class UsersController {
   getMyWonProducts(@Req() req) {
     const userId = req.user.userId || req.user.sub;
     return this.usersService.getMyWonProducts(userId);
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '[USER] Cập nhật thông tin cá nhân', 
+    description: 'User cập nhật họ tên, email, địa chỉ, ngày sinh. Email mới yêu cầu verify lại.' 
+  })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  @ApiResponse({ status: 409, description: 'Email already in use' })
+  updateProfile(@Req() req, @Body() updateProfileDto: UpdateProfileDto) {
+    const userId = req.user.userId || req.user.sub;
+    return this.usersService.updateProfile(userId, updateProfileDto);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '[USER] Đổi mật khẩu', 
+    description: 'User đổi mật khẩu (yêu cầu nhập mật khẩu cũ)' 
+  })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 400, description: 'Old password is incorrect' })
+  changePassword(@Req() req, @Body() changePasswordDto: ChangePasswordDto) {
+    const userId = req.user.userId || req.user.sub;
+    return this.usersService.changePassword(userId, changePasswordDto);
   }
 }
