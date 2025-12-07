@@ -21,7 +21,6 @@ export class MailService {
           pass: mailPassword,
         },
       });
-      console.log('📧 Email service initialized');
     } else {
       console.log('📧 Email not configured - will log OTP to console');
       this.transporter = null;
