@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Bid, BidDocument } from './schemas/bid.schema';
@@ -8,7 +8,6 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { PlaceBidDto } from './dto/place-bid.dto';
 import { PlaceAutoBidDto } from './dto/place-auto-bid.dto';
 import { MailService } from '../common/services/mail.service';
-import { AuctionSchedulerService } from '../scheduler/auction-scheduler.service';
 
 @Injectable()
 export class BidsService {
@@ -18,8 +17,6 @@ export class BidsService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private mailService: MailService,
-    @Inject(forwardRef(() => AuctionSchedulerService))
-    private auctionSchedulerService: AuctionSchedulerService,
   ) {}
 
   async placeBid(productId: string, placeBidDto: PlaceBidDto, bidderId: string) {
@@ -142,6 +139,7 @@ export class BidsService {
       }
     }
 
+    // Hooks tự động sync Elasticsearch
     await product.save();
 
     // Sau khi bid, trigger auto bid để xử lý các auto bid khác
@@ -210,7 +208,7 @@ export class BidsService {
 
     // Nếu đạt buy now price, gửi email kết thúc đấu giá ngay lập tức
     if (isBuyNowPurchase) {
-      await this.auctionSchedulerService.handleBuyNowPurchase(productId);
+      await this.handleBuyNowPurchase(productId);
     }
 
     return {
@@ -314,9 +312,10 @@ export class BidsService {
         product.currentPrice = product.startPrice;
         product.currentWinnerId = undefined;
       }
-    }
 
-    await product.save();
+      // Hooks tự động sync Elasticsearch
+      await product.save();
+    }
 
     // ========== GỬI EMAIL CHO NGƯỜI BỊ TỪ CHỐI ==========
     const seller = await this.userModel.findById(sellerId);
@@ -505,11 +504,12 @@ export class BidsService {
       }
     }
 
+    // Hooks tự động sync Elasticsearch
     await product.save();
 
     // Nếu đạt buy now price, gửi email kết thúc đấu giá ngay lập tức
     if (isBuyNowPurchase) {
-      await this.auctionSchedulerService.handleBuyNowPurchase(product._id.toString());
+      await this.handleBuyNowPurchase(product._id.toString());
     }
   }
 
@@ -551,5 +551,48 @@ export class BidsService {
     return {
       message: 'Auto bid cancelled successfully',
     };
+  }
+
+  /**
+   * Xử lý ngay lập tức khi đấu giá kết thúc do buy now price
+   */
+  async handleBuyNowPurchase(productId: string) {
+    const product = await this.productModel
+      .findById(productId)
+      .populate('sellerId', 'email fullName')
+      .populate('currentWinnerId', 'email fullName');
+
+    if (!product || !product.currentWinnerId) {
+      return;
+    }
+
+    const seller = product.sellerId as any;
+    const winner = product.currentWinnerId as any;
+
+    // Gửi email cho seller
+    if (seller?.email) {
+      await this.mailService.sendAuctionEndedToSeller({
+        sellerEmail: seller.email,
+        sellerName: seller.fullName,
+        productName: product.name,
+        finalPrice: product.currentPrice,
+        winnerName: winner?.fullName || 'Unknown',
+        winnerEmail: winner?.email || '',
+        endTime: product.endTime,
+      });
+    }
+
+    // Gửi email cho winner
+    if (winner?.email) {
+      await this.mailService.sendAuctionEndedToWinner({
+        winnerEmail: winner.email,
+        winnerName: winner.fullName,
+        productName: product.name,
+        finalPrice: product.currentPrice,
+        sellerName: seller?.fullName || 'Unknown',
+        sellerEmail: seller?.email || '',
+        endTime: product.endTime,
+      });
+    }
   }
 }
