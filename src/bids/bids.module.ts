@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BidsController } from './bids.controller';
 import { BidsService } from './bids.service';
@@ -7,7 +7,6 @@ import { AutoBidConfig, AutoBidConfigSchema } from './schemas/auto-bid-config.sc
 import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { MailService } from '../common/services/mail.service';
-import { SchedulerModule } from '../scheduler/scheduler.module';
 
 @Module({
   imports: [
@@ -17,7 +16,6 @@ import { SchedulerModule } from '../scheduler/scheduler.module';
       { name: Product.name, schema: ProductSchema },
       { name: User.name, schema: UserSchema },
     ]),
-    forwardRef(() => SchedulerModule),
   ],
   controllers: [BidsController],
   providers: [BidsService, MailService],

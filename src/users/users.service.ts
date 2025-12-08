@@ -1,14 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { Bid, BidDocument } from '../bids/schemas/bid.schema';
+import { User, UserDocument } from './schemas/user.schema';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Bid.name) private bidModel: Model<BidDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   async getMyParticipatingProducts(userId: string) {
@@ -58,6 +63,90 @@ export class UsersService {
     return {
       total: products.length,
       products,
+    };
+  }
+
+  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check email uniqueness if email is being updated
+    if (updateProfileDto.email && updateProfileDto.email !== user.email) {
+      const emailExists = await this.userModel.findOne({ 
+        email: updateProfileDto.email.toLowerCase() 
+      });
+
+      if (emailExists) {
+        throw new ConflictException('Email already in use');
+      }
+    }
+
+    // Update fields
+    if (updateProfileDto.fullName) {
+      user.fullName = updateProfileDto.fullName;
+    }
+
+    if (updateProfileDto.email) {
+      user.email = updateProfileDto.email.toLowerCase();
+      user.isEmailVerified = false; // Require re-verification if email changes
+    }
+
+    if (updateProfileDto.address !== undefined) {
+      user.address = updateProfileDto.address;
+    }
+
+    if (updateProfileDto.dateOfBirth) {
+      user.dateOfBirth = new Date(updateProfileDto.dateOfBirth);
+    }
+
+    await user.save();
+
+    return {
+      message: 'Profile updated successfully',
+      user: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        address: user.address,
+        dateOfBirth: user.dateOfBirth,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+      },
+    };
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.password) {
+      throw new BadRequestException('Cannot change password for Google OAuth users');
+    }
+
+    // Verify old password
+    const isOldPasswordValid = await bcrypt.compare(
+      changePasswordDto.oldPassword,
+      user.password,
+    );
+
+    if (!isOldPasswordValid) {
+      throw new BadRequestException('Old password is incorrect');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(changePasswordDto.newPassword, 10);
+    user.password = hashedPassword;
+
+    await user.save();
+
+    return {
+      message: 'Password changed successfully',
     };
   }
 }

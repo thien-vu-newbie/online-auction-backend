@@ -19,6 +19,7 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AddDescriptionDto } from './dto/add-description.dto';
+import { SearchProductDto } from './dto/search-product.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -59,6 +60,62 @@ export class ProductsController {
 
     const sellerId = req.user.userId || req.user.sub;
     return this.productsService.create(createProductDto, sellerId, files);
+  }
+
+  @Get('homepage/top-ending-soon')
+  @ApiOperation({ 
+    summary: '[PUBLIC] Top sản phẩm gần kết thúc', 
+    description: 'Hiển thị sản phẩm sắp kết thúc đấu giá (endTime gần nhất). Mặc định limit=5' 
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 5 })
+  @ApiResponse({ status: 200, description: 'Top products ending soon' })
+  getTopEndingSoon(@Query('limit') limit?: number) {
+    return this.productsService.getTopEndingSoon(limit);
+  }
+
+  @Get('homepage/top-most-bids')
+  @ApiOperation({ 
+    summary: '[PUBLIC] Top sản phẩm nhiều lượt bid nhất', 
+    description: 'Hiển thị sản phẩm có số lượt đấu giá cao nhất. Mặc định limit=5' 
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 5 })
+  @ApiResponse({ status: 200, description: 'Top products with most bids' })
+  getTopMostBids(@Query('limit') limit?: number) {
+    return this.productsService.getTopMostBids(limit);
+  }
+
+  @Get('homepage/top-highest-price')
+  @ApiOperation({ 
+    summary: '[PUBLIC] Top sản phẩm giá cao nhất', 
+    description: 'Hiển thị sản phẩm có giá hiện tại cao nhất. Mặc định limit=5' 
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 5 })
+  @ApiResponse({ status: 200, description: 'Top products with highest price' })
+  getTopHighestPrice(@Query('limit') limit?: number) {
+    return this.productsService.getTopHighestPrice(limit);
+  }
+
+  @Get('search')
+  @ApiOperation({ 
+    summary: '[PUBLIC] Tìm kiếm sản phẩm (toàn bộ)', 
+    description: 'Elasticsearch full-text search với tiếng Việt (asciifolding), fuzzy matching, relevance scoring, sort. Tìm trong toàn bộ sản phẩm.' 
+  })
+  @ApiResponse({ status: 200, description: 'Search results with pagination' })
+  search(@Query() searchDto: SearchProductDto) {
+    return this.productsService.search(searchDto);
+  }
+
+  @Get('category/:categoryId/search')
+  @ApiOperation({ 
+    summary: '[PUBLIC] Tìm kiếm sản phẩm trong danh mục', 
+    description: 'Elasticsearch full-text search trong 1 danh mục cụ thể. Hỗ trợ tiếng Việt không dấu, sort, phân trang.' 
+  })
+  @ApiResponse({ status: 200, description: 'Search results in category with pagination' })
+  searchInCategory(
+    @Param('categoryId') categoryId: string,
+    @Query() searchDto: SearchProductDto,
+  ) {
+    return this.productsService.search({ ...searchDto, categoryId });
   }
 
   @Get('category/:categoryId')
@@ -146,5 +203,18 @@ export class ProductsController {
   @ApiResponse({ status: 404, description: 'Product not found' })
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
+  }
+
+  @Post('admin/reindex-elasticsearch')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '[ADMIN] Reindex all products to Elasticsearch', 
+    description: 'Đồng bộ tất cả products từ MongoDB sang Elasticsearch. Chạy 1 lần khi chuyển sang ES.' 
+  })
+  @ApiResponse({ status: 200, description: 'Reindexing completed' })
+  async reindexElasticsearch() {
+    return this.productsService.reindexElasticsearch();
   }
 }

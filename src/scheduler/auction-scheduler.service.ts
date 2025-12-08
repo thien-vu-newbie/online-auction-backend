@@ -56,7 +56,7 @@ export class AuctionSchedulerService {
             });
           }
 
-          // Update product status
+          // Update product status - hooks tự động sync Elasticsearch
           product.status = 'expired';
           await product.save();
         } else {
@@ -90,58 +90,13 @@ export class AuctionSchedulerService {
             });
           }
 
-          // Update product status
+          // Update product status - hooks tự động sync Elasticsearch
           product.status = 'sold';
           await product.save();
         }
       } catch (error) {
         this.logger.error(`Error processing auction ${product._id}: ${error.message}`);
       }
-    }
-  }
-
-  /**
-   * Xử lý ngay lập tức khi đấu giá kết thúc do buy now price
-   */
-  async handleBuyNowPurchase(productId: string) {
-    const product = await this.productModel
-      .findById(productId)
-      .populate('sellerId', 'email fullName')
-      .populate('currentWinnerId', 'email fullName');
-
-    if (!product || !product.currentWinnerId) {
-      return;
-    }
-
-    const seller = product.sellerId as any;
-    const winner = product.currentWinnerId as any;
-
-    this.logger.log(`Buy now purchase: ${product.name} - Winner: ${winner?.fullName}`);
-
-    // Gửi email cho seller
-    if (seller?.email) {
-      await this.mailService.sendAuctionEndedToSeller({
-        sellerEmail: seller.email,
-        sellerName: seller.fullName,
-        productName: product.name,
-        finalPrice: product.currentPrice,
-        winnerName: winner?.fullName || 'Unknown',
-        winnerEmail: winner?.email || '',
-        endTime: product.endTime,
-      });
-    }
-
-    // Gửi email cho winner
-    if (winner?.email) {
-      await this.mailService.sendAuctionEndedToWinner({
-        winnerEmail: winner.email,
-        winnerName: winner.fullName,
-        productName: product.name,
-        finalPrice: product.currentPrice,
-        sellerName: seller?.fullName || 'Unknown',
-        sellerEmail: seller?.email || '',
-        endTime: product.endTime,
-      });
     }
   }
 }
