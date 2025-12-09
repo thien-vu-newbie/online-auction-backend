@@ -16,7 +16,6 @@ export interface ProductSearchBody {
   endTime: Date;
   status: string;
   bidCount: number;
-  thumbnail: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -79,7 +78,6 @@ export class ElasticsearchService {
             endTime: { type: 'date' },
             status: { type: 'keyword' },
             bidCount: { type: 'integer' },
-            thumbnail: { type: 'keyword' },
             createdAt: { type: 'date' },
             updatedAt: { type: 'date' },
           },
@@ -106,7 +104,6 @@ export class ElasticsearchService {
         endTime: product.endTime,
         status: product.status,
         bidCount: product.bidCount,
-        thumbnail: product.thumbnail,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
       };
@@ -164,9 +161,7 @@ export class ElasticsearchService {
   }): Promise<{ products: any[]; total: number }> {
     const { query, categoryId, sortBy = 'created_desc', page = 1, limit = 10 } = params;
 
-    const must: any[] = [
-      { term: { status: 'active' } },
-    ];
+    const must: any[] = [];
 
     if (query) {
       must.push({
@@ -245,7 +240,6 @@ export class ElasticsearchService {
         endTime: product.endTime,
         status: product.status,
         bidCount: product.bidCount,
-        thumbnail: product.thumbnail,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
       },
@@ -253,5 +247,21 @@ export class ElasticsearchService {
 
     await this.esService.bulk({ body });
     this.logger.log(`Bulk indexed ${products.length} products`);
+  }
+
+  async deleteIndex(): Promise<void> {
+    try {
+      const exists = await this.esService.indices.exists({ index: this.index });
+      if (!exists) {
+        this.logger.log(`Index "${this.index}" does not exist, skip delete`);
+        return;
+      }
+
+      await this.esService.indices.delete({ index: this.index });
+      this.logger.log(`Index "${this.index}" deleted successfully`);
+    } catch (error) {
+      this.logger.error(`Error deleting index ${this.index}:`, error);
+      throw error;
+    }
   }
 }

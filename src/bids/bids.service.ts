@@ -144,7 +144,11 @@ export class BidsService {
 
     // Sau khi bid, trigger auto bid để xử lý các auto bid khác
     // (nếu có người auto bid cao hơn thì sẽ tự động counter)
-    await this.processAutoBid(product, finalBidderId, now);
+    // CHỈ process nếu người bid KHÔNG phải người đang thắng
+    const shouldProcessAutoBid = !product.currentWinnerId || product.currentWinnerId.toString() !== finalBidderId.toString();
+    if (shouldProcessAutoBid) {
+      await this.processAutoBid(product, now);
+    }
 
     // Reload product để lấy giá mới nhất sau auto bid
     const updatedProduct = await this.productModel.findById(productId)
@@ -416,7 +420,11 @@ export class BidsService {
     );
 
     // Xử lý auto bid logic
-    await this.processAutoBid(product, new Types.ObjectId(bidderId), now);
+    // CHỈ process nếu người đặt auto bid KHÔNG phải người đang thắng
+    const shouldProcessAutoBid = !product.currentWinnerId || product.currentWinnerId.toString() !== bidderId;
+    if (shouldProcessAutoBid) {
+      await this.processAutoBid(product, now);
+    }
 
     // Reload product
     const updatedProduct = await this.productModel.findById(productId);
@@ -435,8 +443,8 @@ export class BidsService {
     };
   }
 
-  private async processAutoBid(product: ProductDocument, newBidderId: Types.ObjectId, now: Date) {
-    const minWinPrice = Math.max(product.currentPrice + product.stepPrice, product.startPrice);
+  private async processAutoBid(product: ProductDocument, now: Date) {
+    const minWinPrice = product.currentPrice + product.stepPrice;
 
     // Lấy tất cả auto bid config active cho product này
     const autoBidConfigs = await this.autoBidConfigModel
@@ -466,9 +474,20 @@ export class BidsService {
       winnerId = highestAutoBid.bidderId;
     } else {
       // Có >= 2 người auto bid
-      // Giá vào sản phẩm = secondHighest.maxBidAmount
-      const priceToWin = secondHighestAutoBid.maxBidAmount;
-      finalPrice = priceToWin;
+      // Kiểm tra xem người đang giữ win có phải là người có max cao nhất không
+      const currentWinnerId = product.currentWinnerId?.toString();
+      const highestBidderId = highestAutoBid.bidderId.toString();
+      
+      if (currentWinnerId === highestBidderId) {
+        // Người đang win ĐÚNG là người có max cao nhất
+        // -> Giá win = max của người thứ 2 (không cần +step)
+        finalPrice = secondHighestAutoBid.maxBidAmount;
+      } else {
+        // Người đang win KHÔNG phải người có max cao nhất
+        // -> Giá win = max của người thứ 2 + step price
+        finalPrice = secondHighestAutoBid.maxBidAmount + product.stepPrice;
+      }
+      
       winnerId = highestAutoBid.bidderId;
     }
 

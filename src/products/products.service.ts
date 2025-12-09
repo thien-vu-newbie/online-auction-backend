@@ -36,18 +36,14 @@ export class ProductsService implements OnModuleInit {
   async create(
     createProductDto: CreateProductDto,
     sellerId: string,
-    files: { thumbnail?: Express.Multer.File[], images?: Express.Multer.File[] },
+    files: { images?: Express.Multer.File[] },
   ): Promise<Product> {
     // Validate category exists
     await this.categoriesService.findOne(createProductDto.categoryId);
 
-    // Validate images
-    if (!files.thumbnail || files.thumbnail.length === 0) {
-      throw new BadRequestException('Thumbnail image is required');
-    }
-
-    if (!files.images || files.images.length < 3) {
-      throw new BadRequestException('Minimum 3 product images required');
+    // Validate images (expect 4 images; the first image is used as the primary image)
+    if (!files.images || files.images.length < 4) {
+      throw new BadRequestException('Minimum 4 product images required');
     }
 
     // Validate dates
@@ -63,24 +59,20 @@ export class ProductsService implements OnModuleInit {
       throw new BadRequestException('Buy now price must be greater than start price');
     }
 
-    // Upload images to Cloudinary
-    const [thumbnailResult] = await this.cloudinaryService.uploadMultipleImages(
-      files.thumbnail,
-      'auction/products/thumbnails',
-    );
-
+    // Upload images to Cloudinary (all images in one folder)
     const imagesResults = await this.cloudinaryService.uploadMultipleImages(
       files.images,
       'auction/products/images',
     );
+
+    const imagesUrls = imagesResults.map(img => img.secure_url);
 
     // Create product
     const product = new this.productModel({
       ...createProductDto,
       sellerId: new Types.ObjectId(sellerId),
       categoryId: new Types.ObjectId(createProductDto.categoryId),
-      thumbnail: thumbnailResult.secure_url,
-      images: imagesResults.map(img => img.secure_url),
+      images: imagesUrls,
       currentPrice: createProductDto.startPrice,
       startTime,
       endTime,
@@ -161,7 +153,7 @@ export class ProductsService implements OnModuleInit {
 
     // Get full product details from MongoDB
     const productIds = esProducts.map(p => new Types.ObjectId(p.id || p._id));
-    
+
     const products = await this.productModel
       .find({ _id: { $in: productIds } })
       .populate('sellerId', 'fullName ratingPositive ratingNegative')
@@ -169,17 +161,28 @@ export class ProductsService implements OnModuleInit {
       .populate('categoryId', 'name')
       .lean();
 
-    // Maintain Elasticsearch order
+    // Maintain Elasticsearch order and filter out products missing in MongoDB
     const productMap = new Map(products.map(p => [p._id.toString(), p]));
     const orderedProducts = productIds
       .map(id => productMap.get(id.toString()))
       .filter(p => p);
 
+    // If Elasticsearch index contains stale documents (deleted in MongoDB),
+    // adjust the total so it reflects actual returned products.
+    // hitsTotal is ES total (could be object or number)
+    const hitsTotal = total;
+    const returnedFromEs = esProducts.length; // number of hits returned from ES for this page
+    const foundInDb = products.length; // number of those hits that exist in MongoDB
+    const missingFromDb = Math.max(0, returnedFromEs - foundInDb);
+
+    // `total` from ElasticsearchService.search is a number here.
+    const adjustedTotal = Math.max(0, total - missingFromDb);
+
     return {
       products: orderedProducts,
-      total,
+      total: adjustedTotal,
       page,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(adjustedTotal / limit),
     };
   }
 
@@ -201,7 +204,6 @@ export class ProductsService implements OnModuleInit {
       this.productModel
         .find({ 
           categoryId: new Types.ObjectId(categoryId),
-          status: 'active',
         })
         .populate('sellerId', 'fullName ratingPositive ratingNegative')
         .populate('currentWinnerId', 'fullName')
@@ -211,8 +213,32 @@ export class ProductsService implements OnModuleInit {
         .lean(),
       this.productModel.countDocuments({ 
         categoryId: new Types.ObjectId(categoryId),
-        status: 'active',
       }),
+    ]);
+
+    return {
+      products: products as any,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Get all products with pagination, sorted by creation time (newest first)
+  async getAll(page: number = 1, limit: number = 10): Promise<{ products: Product[]; total: number; page: number; totalPages: number }> {
+    const skip = (page - 1) * limit;
+
+    const [products, total] = await Promise.all([
+      this.productModel
+        .find()
+        .populate('sellerId', 'fullName ratingPositive ratingNegative')
+        .populate('currentWinnerId', 'fullName')
+        .populate('categoryId', 'name')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(),
     ]);
 
     return {
@@ -253,7 +279,7 @@ export class ProductsService implements OnModuleInit {
         status: 'active',
       })
       .limit(5)
-      .select('name thumbnail currentPrice endTime bidCount')
+      .select('name images currentPrice endTime bidCount')
       .lean();
 
     return {
@@ -364,15 +390,15 @@ export class ProductsService implements OnModuleInit {
       throw new NotFoundException('Product not found');
     }
 
-    // Delete images from Cloudinary
+    // Delete all images from Cloudinary
     try {
-      const thumbnailPublicId = this.cloudinaryService.extractPublicId(product.thumbnail);
-      await this.cloudinaryService.deleteImage(thumbnailPublicId);
+      const imagePublicIds = (product.images || []).map(url =>
+        this.cloudinaryService.extractPublicId(url),
+      ).filter(Boolean);
 
-      const imagePublicIds = product.images.map(url => 
-        this.cloudinaryService.extractPublicId(url)
-      );
-      await this.cloudinaryService.deleteMultipleImages(imagePublicIds);
+      if (imagePublicIds.length > 0) {
+        await this.cloudinaryService.deleteMultipleImages(imagePublicIds);
+      }
     } catch (error) {
       console.error('Error deleting images from Cloudinary:', error);
     }
@@ -398,7 +424,7 @@ export class ProductsService implements OnModuleInit {
 
   // Migration: Reindex all products to Elasticsearch
   async reindexElasticsearch(): Promise<{ message: string, indexed: number }> {
-    // Get all active products
+    // Get all products from MongoDB
     const products = await this.productModel
       .find()
       .populate('sellerId', 'fullName ratingPositive ratingNegative')
@@ -406,7 +432,12 @@ export class ProductsService implements OnModuleInit {
       .populate('categoryId', 'name')
       .lean();
 
-    // Bulk index to Elasticsearch
+    // Rebuild the Elasticsearch index to avoid stale documents:
+    // 1) delete existing index (if any)
+    // 2) create mapping/index settings
+    // 3) bulk index all current products
+    await this.elasticsearchService.deleteIndex();
+    await this.elasticsearchService.createIndex();
     await this.elasticsearchService.bulkIndex(products as any);
 
     return {

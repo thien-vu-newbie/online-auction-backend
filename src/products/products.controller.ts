@@ -37,14 +37,13 @@ export class ProductsController {
   @ApiBearerAuth('JWT-auth')
   @UseInterceptors(
     FileFieldsInterceptor([
-      { name: 'thumbnail', maxCount: 1 },
-      { name: 'images', maxCount: 10 },
+      { name: 'images', maxCount: 4 },
     ]),
   )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ 
     summary: '[SELLER] Đăng sản phẩm đấu giá', 
-    description: 'Seller tạo sản phẩm với tối thiểu 3 ảnh, upload lên Cloudinary' 
+    description: 'Seller tạo sản phẩm với tối thiểu 4 ảnh (sử dụng ảnh đầu tiên làm ảnh chính), upload lên Cloudinary' 
   })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid data or missing images' })
@@ -52,10 +51,10 @@ export class ProductsController {
   async create(
     @Req() req,
     @Body() createProductDto: CreateProductDto,
-    @UploadedFiles() files: { thumbnail?: Express.Multer.File[], images?: Express.Multer.File[] },
+    @UploadedFiles() files: { images?: Express.Multer.File[] },
   ) {
-    if (!files.thumbnail || !files.images) {
-      throw new BadRequestException('Thumbnail and images are required');
+    if (!files || !files.images || files.images.length < 4) {
+      throw new BadRequestException('At least 4 images are required');
     }
 
     const sellerId = req.user.userId || req.user.sub;
@@ -105,17 +104,19 @@ export class ProductsController {
     return this.productsService.search(searchDto);
   }
 
-  @Get('category/:categoryId/search')
-  @ApiOperation({ 
-    summary: '[PUBLIC] Tìm kiếm sản phẩm trong danh mục', 
-    description: 'Elasticsearch full-text search trong 1 danh mục cụ thể. Hỗ trợ tiếng Việt không dấu, sort, phân trang.' 
+  @Get()
+  @ApiOperation({
+    summary: '[PUBLIC] Lấy toàn bộ sản phẩm (phân trang)',
+    description: 'Trả về danh sách sản phẩm có phân trang, sắp xếp theo thời gian tạo (mới nhất trước)'
   })
-  @ApiResponse({ status: 200, description: 'Search results in category with pagination' })
-  searchInCategory(
-    @Param('categoryId') categoryId: string,
-    @Query() searchDto: SearchProductDto,
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'List of products with pagination' })
+  getAll(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
   ) {
-    return this.productsService.search({ ...searchDto, categoryId });
+    return this.productsService.getAll(parseInt(page, 10), parseInt(limit, 10));
   }
 
   @Get('category/:categoryId')
@@ -206,9 +207,6 @@ export class ProductsController {
   }
 
   @Post('admin/reindex-elasticsearch')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: '[ADMIN] Reindex all products to Elasticsearch', 
     description: 'Đồng bộ tất cả products từ MongoDB sang Elasticsearch. Chạy 1 lần khi chuyển sang ES.' 

@@ -17,12 +17,9 @@ export class Product {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   sellerId: Types.ObjectId;
 
-  // Images - Cloudinary URLs (tối thiểu 3 ảnh)
-  @Prop({ required: true })
-  thumbnail: string; // Cloudinary URL
-
-  @Prop({ type: [String], required: true })
-  images: string[]; // Array of Cloudinary URLs (minimum 3)
+  // Images - Cloudinary URLs (tối thiểu 4 ảnh). Use images[0] as the primary image in the UI.
+  @Prop({ type: [String], required: true, validate: [(v: string[]) => Array.isArray(v) && v.length >= 4, 'At least 4 images are required'] })
+  images: string[]; // Array of Cloudinary URLs (minimum 4)
 
   // Pricing
   @Prop({ required: true })
@@ -95,6 +92,7 @@ ProductSchema.post('save', async function(doc: ProductDocument) {
     console.error('Error syncing product to Elasticsearch on save:', error);
   }
 });
+
 
 // Post-findOneAndUpdate hook: Sync to Elasticsearch after update
 ProductSchema.post('findOneAndUpdate', async function(doc: ProductDocument) {
