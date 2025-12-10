@@ -7,6 +7,7 @@ import { AutoBidConfig, AutoBidConfigSchema } from './schemas/auto-bid-config.sc
 import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { MailService } from '../common/services/mail.service';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { MailService } from '../common/services/mail.service';
       { name: Product.name, schema: ProductSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    AdminModule, // Import AdminModule để dùng AdminService
   ],
   controllers: [BidsController],
   providers: [BidsService, MailService],

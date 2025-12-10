@@ -448,4 +448,5 @@ export class ProductsService implements OnModuleInit {
       indexed: products.length,
     };
   }
+
 }

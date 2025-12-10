@@ -8,6 +8,7 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { PlaceBidDto } from './dto/place-bid.dto';
 import { PlaceAutoBidDto } from './dto/place-auto-bid.dto';
 import { MailService } from '../common/services/mail.service';
+import { AdminService } from '../admin/admin.service';
 
 @Injectable()
 export class BidsService {
@@ -17,6 +18,7 @@ export class BidsService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private mailService: MailService,
+    private adminService: AdminService,
   ) {}
 
 
@@ -302,14 +304,15 @@ export class BidsService {
       product.status = 'sold';
       product.endTime = now; // Kết thúc ngay lập tức
     } else {
-      // Auto extend
+      // Auto extend - use admin config
       if (product.autoExtend) {
+        const config = await this.adminService.getConfig();
         const timeUntilEnd = product.endTime.getTime() - now.getTime();
-        const fiveMinutes = 5 * 60 * 1000;
+        const thresholdMs = config.autoExtendThresholdMinutes * 60 * 1000;
         
-        if (timeUntilEnd < fiveMinutes) {
-          const tenMinutes = 10 * 60 * 1000;
-          product.endTime = new Date(now.getTime() + tenMinutes);
+        if (timeUntilEnd < thresholdMs) {
+          const extendMs = config.autoExtendDurationMinutes * 60 * 1000;
+          product.endTime = new Date(now.getTime() + extendMs);
         }
       }
     }

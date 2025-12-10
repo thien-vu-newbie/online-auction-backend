@@ -1,7 +1,8 @@
-import { Controller, Post, Body, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, UseGuards, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { UpgradeSellerDto } from './dto/upgrade-seller.dto';
+import { UpdateConfigDto } from './dto/update-config.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -53,5 +54,28 @@ export class AdminController {
   @ApiResponse({ status: 404, description: 'User not found' })
   getUserById(@Param('id') id: string) {
     return this.adminService.getUserById(id);
+  }
+
+  @Get('config')
+  @ApiOperation({ 
+    summary: '[ADMIN] Xem cấu hình hệ thống', 
+    description: 'Xem các tham số cấu hình (thời gian nổi bật sản phẩm mới, auto-extend, v.v.)' 
+  })
+  @ApiResponse({ status: 200, description: 'System configuration' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  getConfig() {
+    return this.adminService.getConfig();
+  }
+
+  @Patch('config')
+  @ApiOperation({ 
+    summary: '[ADMIN] Cập nhật cấu hình hệ thống', 
+    description: 'Cập nhật các tham số: newProductHighlightMinutes, autoExtendThresholdMinutes, autoExtendDurationMinutes' 
+  })
+  @ApiResponse({ status: 200, description: 'Config updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid config values' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  updateConfig(@Body() updateConfigDto: UpdateConfigDto) {
+    return this.adminService.updateConfig(updateConfigDto);
   }
 }
