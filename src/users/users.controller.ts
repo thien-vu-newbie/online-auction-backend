@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RequestSellerUpgradeDto } from './dto/request-seller-upgrade.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -74,5 +75,19 @@ export class UsersController {
   changePassword(@Req() req, @Body() changePasswordDto: ChangePasswordDto) {
     const userId = req.user.userId || req.user.sub;
     return this.usersService.changePassword(userId, changePasswordDto);
+  }
+
+  @Post('request-seller-upgrade')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '[BIDDER] Xin nâng cấp lên seller', 
+    description: 'Bidder gửi yêu cầu nâng cấp lên seller (7 ngày). Admin sẽ duyệt qua POST /admin/upgrade-seller với userId.' 
+  })
+  @ApiResponse({ status: 200, description: 'Request submitted successfully' })
+  @ApiResponse({ status: 400, description: 'Already a seller or request pending' })
+  requestSellerUpgrade(@Req() req, @Body() dto: RequestSellerUpgradeDto) {
+    const userId = req.user.userId || req.user.sub;
+    return this.usersService.requestSellerUpgrade(userId);
   }
 }

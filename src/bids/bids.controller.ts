@@ -1,7 +1,6 @@
 import { Controller, Post, Get, Body, Param, UseGuards, Req, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { BidsService } from './bids.service';
-import { PlaceBidDto } from './dto/place-bid.dto';
 import { PlaceAutoBidDto } from './dto/place-auto-bid.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -12,25 +11,8 @@ export class BidsController {
     private readonly bidsService: BidsService,
   ) {}
 
-  @Post('products/:productId')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ 
-    summary: '[BIDDER/SELLER] Đặt giá cho sản phẩm', 
-    description: 'Ra giá. Kiểm tra rating >80% nếu cần, seller không bid được sản phẩm của mình' 
-  })
-  @ApiResponse({ status: 201, description: 'Bid placed successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid bid amount or auction ended' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Rating < 80% or rejected or self-bid' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  placeBid(
-    @Param('productId') productId: string,
-    @Body() placeBidDto: PlaceBidDto,
-    @Req() req,
-  ) {
-    const bidderId = req.user.userId || req.user.sub;
-    return this.bidsService.placeBid(productId, placeBidDto, bidderId);
-  }
+  // Regular placeBid endpoint has been removed - only auto-bid is supported now
+  // All bidding must go through POST /products/:productId/auto-bid
 
   @Get('products/:productId/history')
   @ApiOperation({ 

@@ -59,6 +59,9 @@ export class User {
   isRequestingSellerUpgrade: boolean;
 
   @Prop()
+  sellerUpgradeRequestDate?: Date; // Ngày user gửi yêu cầu
+
+  @Prop()
   sellerUpgradeExpiry?: Date; // Admin set thời điểm phân quyền + 7 ngày
 
   // Helper method to check if seller permission is still valid

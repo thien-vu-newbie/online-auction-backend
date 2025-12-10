@@ -2,16 +2,47 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { AdminConfig, AdminConfigDocument } from './schemas/admin-config.schema';
 import { UpgradeSellerDto } from './dto/upgrade-seller.dto';
+import { UpdateConfigDto } from './dto/update-config.dto';
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(AdminConfig.name) private adminConfigModel: Model<AdminConfigDocument>,
   ) {}
 
+
+  // ============ Seller Upgrade Request Management ============
+
+  async getPendingSellerRequests(page: number = 1, limit: number = 20) {
+    const skip = (page - 1) * limit;
+
+    const [users, total] = await Promise.all([
+      this.userModel
+        .find({ isRequestingSellerUpgrade: true })
+        .select('fullName email role isRequestingSellerUpgrade sellerUpgradeRequestDate ratingPositive ratingNegative')
+        .sort({ sellerUpgradeRequestDate: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.userModel.countDocuments({ isRequestingSellerUpgrade: true }),
+    ]);
+
+    return {
+      requests: users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   async upgradeSeller(upgradeSellerDto: UpgradeSellerDto) {
-    const { userId, durationDays } = upgradeSellerDto;
+    const { userId } = upgradeSellerDto;
 
     const user = await this.userModel.findById(userId);
     if (!user) {
@@ -22,17 +53,19 @@ export class AdminService {
       throw new BadRequestException('Cannot upgrade admin to seller');
     }
 
-    // Calculate expiry date (from now + durationDays)
+    // Fixed 7-day duration
     const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + durationDays);
+    expiryDate.setDate(expiryDate.getDate() + 7);
 
-    // Update user role and expiry
+    // Update user role, expiry and clear request flags
     user.role = 'seller';
     user.sellerUpgradeExpiry = expiryDate;
+    user.isRequestingSellerUpgrade = false;
+    user.sellerUpgradeRequestDate = undefined;
     await user.save();
 
     return {
-      message: 'User upgraded to seller successfully',
+      message: 'User upgraded to seller successfully (7 days)',
       userId: user._id,
       email: user.email,
       role: user.role,
@@ -77,4 +110,38 @@ export class AdminService {
 
     return user;
   }
+
+  // ============ Admin Config Methods ============
+
+  async getConfig() {
+    let config = await this.adminConfigModel.findOne({ configKey: 'global' }).lean();
+    
+    if (!config) {
+      // Create default config if not exists
+      const newConfig = await this.adminConfigModel.create({
+        configKey: 'global',
+        newProductHighlightMinutes: 5,
+        autoExtendThresholdMinutes: 5,
+        autoExtendDurationMinutes: 10,
+      });
+      return newConfig.toObject();
+    }
+
+    return config;
+  }
+
+  async updateConfig(updateConfigDto: UpdateConfigDto) {
+    const config = await this.adminConfigModel.findOneAndUpdate(
+      { configKey: 'global' },
+      { $set: updateConfigDto },
+      { new: true, upsert: true },
+    );
+
+    return {
+      message: 'Config updated successfully',
+      config,
+    };
+  }
+
+
 }

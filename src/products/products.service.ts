@@ -67,13 +67,13 @@ export class ProductsService implements OnModuleInit {
 
     const imagesUrls = imagesResults.map(img => img.secure_url);
 
-    // Create product
+    // Create product with currentPrice = 0 (first bid must be >= startPrice)
     const product = new this.productModel({
       ...createProductDto,
       sellerId: new Types.ObjectId(sellerId),
       categoryId: new Types.ObjectId(createProductDto.categoryId),
       images: imagesUrls,
-      currentPrice: createProductDto.startPrice,
+      currentPrice: 0,
       startTime,
       endTime,
     });
@@ -206,6 +206,7 @@ export class ProductsService implements OnModuleInit {
           categoryId: new Types.ObjectId(categoryId),
         })
         .populate('sellerId', 'fullName ratingPositive ratingNegative')
+        .populate('categoryId', 'name')
         .populate('currentWinnerId', 'fullName')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -274,7 +275,9 @@ export class ProductsService implements OnModuleInit {
     // Lấy 5 sản phẩm khác cùng chuyên mục
     const relatedProducts = await this.productModel
       .find({
-        categoryId: product.categoryId,
+        // If `categoryId` was populated it will be an object { _id, name }
+        // so extract the raw ObjectId to ensure the query matches correctly.
+        categoryId: new Types.ObjectId(product.categoryId._id),
         _id: { $ne: new Types.ObjectId(id) },
         status: 'active',
       })
@@ -445,4 +448,5 @@ export class ProductsService implements OnModuleInit {
       indexed: products.length,
     };
   }
+
 }
