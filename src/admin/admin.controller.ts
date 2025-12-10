@@ -17,11 +17,11 @@ export class AdminController {
 
   @Post('upgrade-seller')
   @ApiOperation({ 
-    summary: '[ADMIN] Nâng cấp user lên seller', 
-    description: 'Admin cấp quyền seller cho user với thời hạn' 
+    summary: '[ADMIN] Nâng cấp user lên seller (7 ngày)', 
+    description: 'Admin cấp quyền seller cho user. Duration cố định 7 ngày. Có thể dùng để approve request hoặc upgrade trực tiếp.' 
   })
-  @ApiResponse({ status: 200, description: 'User upgraded to seller successfully' })
-  @ApiResponse({ status: 400, description: 'Cannot upgrade admin or invalid user' })
+  @ApiResponse({ status: 200, description: 'User upgraded to seller successfully (7 days)' })
+  @ApiResponse({ status: 400, description: 'Cannot upgrade admin' })
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   @ApiResponse({ status: 404, description: 'User not found' })
   upgradeSeller(@Body() upgradeSellerDto: UpgradeSellerDto) {
@@ -77,5 +77,21 @@ export class AdminController {
   @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
   updateConfig(@Body() updateConfigDto: UpdateConfigDto) {
     return this.adminService.updateConfig(updateConfigDto);
+  }
+
+  @Get('seller-upgrade-requests')
+  @ApiOperation({ 
+    summary: '[ADMIN] Xem danh sách yêu cầu nâng cấp seller', 
+    description: 'Lấy danh sách users đang chờ admin duyệt nâng cấp seller' 
+  })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiResponse({ status: 200, description: 'List of pending seller upgrade requests' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  getPendingSellerRequests(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+  ) {
+    return this.adminService.getPendingSellerRequests(parseInt(page), parseInt(limit));
   }
 }

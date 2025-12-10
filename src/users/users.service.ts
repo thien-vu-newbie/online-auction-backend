@@ -149,4 +149,33 @@ export class UsersService {
       message: 'Password changed successfully',
     };
   }
+
+  async requestSellerUpgrade(userId: string) {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === 'admin') {
+      throw new BadRequestException('Admin cannot request seller upgrade');
+    }
+
+    if (user.role === 'seller' && user.sellerUpgradeExpiry && new Date() < user.sellerUpgradeExpiry) {
+      throw new BadRequestException('You are already an active seller');
+    }
+
+    if (user.isRequestingSellerUpgrade) {
+      throw new BadRequestException('You have already submitted a seller upgrade request. Please wait for admin approval.');
+    }
+
+    user.isRequestingSellerUpgrade = true;
+    user.sellerUpgradeRequestDate = new Date();
+    await user.save();
+
+    return {
+      message: 'Seller upgrade request submitted successfully. Admin will review your request.',
+      requestDate: user.sellerUpgradeRequestDate,
+    };
+  }
 }
