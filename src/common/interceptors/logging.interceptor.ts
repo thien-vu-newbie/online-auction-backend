@@ -31,7 +31,9 @@ export class LoggingInterceptor implements NestInterceptor {
     const userAgent = headers['user-agent'];
     const now = Date.now();
 
-    // Log the request
+    // Log the request (avoid sending raw request bodies to external indexes)
+    const requestBodyCompact = (body && typeof body !== 'object') ? String(body) : (body ? '[object]' : undefined);
+
     this.logger.info(`Incoming Request`, {
       context: 'HTTPRequest',
       method,
@@ -39,7 +41,7 @@ export class LoggingInterceptor implements NestInterceptor {
       ip,
       userAgent,
       query,
-      body,
+      bodyCompact: requestBodyCompact,
       timestamp: new Date().toISOString(),
     });
 
@@ -49,13 +51,68 @@ export class LoggingInterceptor implements NestInterceptor {
         const { statusCode } = response;
         const responseTime = Date.now() - now;
 
+        // Sanitize response body before logging to avoid sending large or
+        // inconsistently-mapped objects to external transports (like Elasticsearch).
+        // Always normalize identifiers and `categoryId` to plain strings to
+        // avoid sending BSON/ObjectId or nested objects into the logging index.
+        const getIdString = (val: any) => {
+          if (val === undefined || val === null) return '';
+          try {
+            // Mongoose ObjectId and similar implement toString()
+            if (typeof val === 'object') {
+              if ('_id' in val) return String((val as any)._id);
+              if (typeof (val as any).toString === 'function') return String((val as any).toString());
+              return JSON.stringify(val);
+            }
+            return String(val);
+          } catch (e) {
+            return '';
+          }
+        };
+
+        const sanitizeProduct = (p: any) => {
+          if (!p || typeof p !== 'object') return p;
+          return {
+            _id: getIdString(p._id ?? p.id),
+            name: p.name,
+            categoryId: getIdString(p.categoryId),
+            currentPrice: typeof p.currentPrice === 'number' ? p.currentPrice : Number(p.currentPrice || 0),
+            bidCount: typeof p.bidCount === 'number' ? p.bidCount : Number(p.bidCount || 0),
+            endTime: p.endTime ? String(p.endTime) : undefined,
+          };
+        };
+
+        const sanitizeResponseBody = (body: any) => {
+          if (!body || typeof body !== 'object') return body;
+          try {
+            // If it's a paginated response with products array, sanitize items.
+            if (Array.isArray(body.products)) {
+              return { ...body, products: body.products.map(sanitizeProduct) };
+            }
+
+            // If it's a single product-like object, sanitize known fields.
+            const copy: any = { ...body };
+            if (copy._id) copy._id = getIdString(copy._id);
+            if (copy.id) copy.id = getIdString(copy.id);
+            if (copy.categoryId) copy.categoryId = getIdString(copy.categoryId);
+            return copy;
+          } catch (err) {
+            return '[unserializable response]';
+          }
+        };
+
+        const safeResponseBody = sanitizeResponseBody(resBody);
+
+        // Use a different field name to avoid collisions with any pre-existing
+        // logging index mappings that may expect a different structure for
+        // `responseBody`.
         this.logger.info(`Outgoing Response`, {
           context: 'HTTPResponse',
           method,
           url,
           statusCode,
           responseTime: `${responseTime}ms`,
-          responseBody: resBody,
+          responseBodyCompact: safeResponseBody,
           timestamp: new Date().toISOString(),
         });
       }),

@@ -19,220 +19,6 @@ export class BidsService {
     private mailService: MailService,
   ) {}
 
-  async placeBid(productId: string, placeBidDto: PlaceBidDto, bidderId: string) {
-    const product = await this.productModel.findById(productId);
-    if (!product) {
-      throw new NotFoundException('Product not found');
-    }
-
-    // Check if product is active
-    if (product.status !== 'active') {
-      throw new BadRequestException('Auction is not active');
-    }
-
-    // Check if auction has started
-    const now = new Date();
-    if (now < product.startTime) {
-      throw new BadRequestException('Auction has not started yet');
-    }
-
-    // Check if auction has ended
-    if (now > product.endTime) {
-      throw new BadRequestException('Auction has ended');
-    }
-
-    // Check if bidder is the seller (không được bid sản phẩm của chính mình)
-    if (product.sellerId.toString() === bidderId) {
-      throw new ForbiddenException('You cannot bid on your own product');
-    }
-
-    // Check if bidder is rejected
-    if (product.rejectedBidders.some(id => id.toString() === bidderId)) {
-      throw new ForbiddenException('You have been rejected by the seller and cannot bid on this product');
-    }
-
-    // Get bidder info
-    const bidder = await this.userModel.findById(bidderId);
-    if (!bidder) {
-      throw new NotFoundException('Bidder not found');
-    }
-
-    // Check rating requirement (điểm đánh giá > 80%)
-    // Nếu allowUnratedBidders = false -> bắt buộc check rating
-    if (!product.allowUnratedBidders) {
-      const totalRatings = (bidder.ratingPositive || 0) + (bidder.ratingNegative || 0);
-      
-      if (totalRatings === 0) {
-        // Bidder chưa có rating
-        throw new ForbiddenException('This product does not allow bidders without ratings');
-      }
-      
-      const ratingPercentage = (bidder.ratingPositive / totalRatings) * 100;
-      if (ratingPercentage < 80) {
-        throw new ForbiddenException(`Your rating is ${ratingPercentage.toFixed(1)}%. Minimum required: 80%`);
-      }
-    }
-
-    // Validate bid amount (giá hiện tại + bước giá)
-    const minimumBid = product.currentPrice + product.stepPrice;
-    if (placeBidDto.bidAmount < minimumBid) {
-      throw new BadRequestException(
-        `Bid amount must be at least ${minimumBid} (current price + step price)`
-      );
-    }
-
-    // Kiểm tra auto bid trước khi lưu bid thông thường
-    const highestAutoBid = await this.autoBidConfigModel
-      .findOne({ 
-        productId: new Types.ObjectId(productId),
-        isActive: true,
-        bidderId: { $ne: new Types.ObjectId(bidderId) }, // Không lấy auto bid của chính mình
-        maxBidAmount: { $gte: placeBidDto.bidAmount }, // Auto bid phải >= giá bid
-      })
-      .sort({ maxBidAmount: -1, createdAt: 1 })
-      .lean();
-
-    let finalBidAmount: number;
-    let finalBidderId: Types.ObjectId;
-
-    if (highestAutoBid) {
-      // Có người auto bid với giá >= bid amount
-      // Người auto bid thắng với giá = bid amount (vừa đủ để thắng)
-      finalBidAmount = placeBidDto.bidAmount;
-      finalBidderId = highestAutoBid.bidderId;
-    } else {
-      // Không có auto bid hoặc auto bid < bid amount
-      // Bid thông thường thành công
-      finalBidAmount = placeBidDto.bidAmount;
-      finalBidderId = new Types.ObjectId(bidderId);
-    }
-
-    // Create bid record
-    const newBid = new this.bidModel({
-      productId: new Types.ObjectId(productId),
-      bidderId: finalBidderId,
-      bidAmount: finalBidAmount,
-      bidTime: now,
-    });
-    await newBid.save();
-
-    // Update product
-    product.currentPrice = finalBidAmount;
-    product.currentWinnerId = finalBidderId;
-    product.bidCount += 1;
-
-    // Check if current price >= buy now price -> end auction immediately
-    const isBuyNowPurchase = product.buyNowPrice && finalBidAmount >= product.buyNowPrice;
-    if (isBuyNowPurchase) {
-      product.status = 'sold';
-      product.endTime = now; // Kết thúc ngay lập tức
-    } else {
-      // Auto extend (gia hạn 10 phút nếu bid trước 5 phút kết thúc)
-      if (product.autoExtend) {
-        const timeUntilEnd = product.endTime.getTime() - now.getTime();
-        const fiveMinutes = 5 * 60 * 1000;
-        
-        if (timeUntilEnd < fiveMinutes) {
-          const tenMinutes = 10 * 60 * 1000;
-          product.endTime = new Date(now.getTime() + tenMinutes);
-        }
-      }
-    }
-
-    // Hooks tự động sync Elasticsearch
-    await product.save();
-
-    // Sau khi bid, trigger auto bid để xử lý các auto bid khác
-    // (nếu có người auto bid cao hơn thì sẽ tự động counter)
-    // CHỈ process nếu người bid KHÔNG phải người đang thắng
-    const shouldProcessAutoBid = !product.currentWinnerId || product.currentWinnerId.toString() !== finalBidderId.toString();
-    if (shouldProcessAutoBid) {
-      await this.processAutoBid(product, now);
-    }
-
-    // Reload product để lấy giá mới nhất sau auto bid
-    const updatedProduct = await this.productModel.findById(productId)
-      .populate('sellerId', 'email fullName')
-      .populate('currentWinnerId', 'email fullName');
-
-    // ========== GỬI EMAIL ==========
-    // Lấy thông tin các bên liên quan
-    const seller = await this.userModel.findById(product.sellerId);
-    const currentBidder = await this.userModel.findById(finalBidderId);
-    
-    // Tìm người giữ giá trước đó (nếu có)
-    let previousWinner: any = null;
-    if (product.currentWinnerId && product.currentWinnerId.toString() !== finalBidderId.toString()) {
-      previousWinner = await this.userModel.findById(product.currentWinnerId);
-    }
-
-    // 1. Gửi email cho người bán
-    if (seller) {
-      await this.mailService.sendBidPlacedToSeller({
-        sellerEmail: seller.email,
-        sellerName: seller.fullName,
-        productName: product.name,
-        bidderName: currentBidder?.fullName || 'Anonymous',
-        bidAmount: finalBidAmount,
-        currentPrice: updatedProduct!.currentPrice,
-      });
-    }
-
-    // 2. Gửi email cho người ra giá
-    if (currentBidder) {
-      await this.mailService.sendBidPlacedToBidder({
-        bidderEmail: currentBidder.email,
-        bidderName: currentBidder.fullName,
-        productName: product.name,
-        bidAmount: finalBidAmount,
-        currentPrice: updatedProduct!.currentPrice,
-      });
-    }
-
-    // 3. Gửi email cho người giữ giá trước đó (bị outbid)
-    if (previousWinner) {
-      const previousBid = await this.bidModel
-        .findOne({ 
-          productId: new Types.ObjectId(productId),
-          bidderId: previousWinner._id,
-        })
-        .sort({ bidTime: -1 });
-
-      if (previousBid) {
-        await this.mailService.sendOutbidNotification({
-          previousBidderEmail: previousWinner.email,
-          previousBidderName: previousWinner.fullName,
-          productName: product.name,
-          previousBidAmount: previousBid.bidAmount,
-          newBidAmount: finalBidAmount,
-          currentPrice: updatedProduct!.currentPrice,
-        });
-      }
-    }
-
-    // Nếu đạt buy now price, gửi email kết thúc đấu giá ngay lập tức
-    if (isBuyNowPurchase) {
-      await this.handleBuyNowPurchase(productId);
-    }
-
-    return {
-      message: highestAutoBid 
-        ? 'Your bid was countered by an auto bid' 
-        : 'Bid placed successfully',
-      bid: {
-        _id: newBid._id,
-        productId: newBid.productId,
-        bidAmount: newBid.bidAmount,
-        bidTime: newBid.bidTime,
-        isCountered: !!highestAutoBid,
-      },
-      product: {
-        currentPrice: updatedProduct!.currentPrice,
-        bidCount: updatedProduct!.bidCount,
-        endTime: updatedProduct!.endTime,
-      },
-    };
-  }
 
   async getBidHistory(productId: string) {
     const product = await this.productModel.findById(productId);
@@ -312,8 +98,8 @@ export class BidsService {
         product.currentPrice = nextBid.bidAmount;
         product.currentWinnerId = nextBid.bidderId;
       } else {
-        // No other bids, reset to start price
-        product.currentPrice = product.startPrice;
+        // No other bids, reset to 0
+        product.currentPrice = 0;
         product.currentWinnerId = undefined;
       }
 
@@ -396,12 +182,13 @@ export class BidsService {
       }
     }
 
-    // Validate maxBidAmount phải >= giá hiện tại + step
-    const minimumBid = product.currentPrice + product.stepPrice;
+    // Validate maxBidAmount: if no bids yet (currentPrice = 0), must be >= startPrice; otherwise >= currentPrice + step
+    const minimumBid = product.currentPrice === 0 ? product.startPrice : product.currentPrice + product.stepPrice;
     if (placeAutoBidDto.maxBidAmount < minimumBid) {
-      throw new BadRequestException(
-        `Max bid amount must be at least ${minimumBid} (current price + step price)`
-      );
+      const minBidMessage = product.currentPrice === 0 
+        ? `Max bid amount must be at least ${minimumBid} (start price)`
+        : `Max bid amount must be at least ${minimumBid} (current price + step price)`;
+      throw new BadRequestException(minBidMessage);
     }
 
     // Lưu/update auto bid config
@@ -444,7 +231,8 @@ export class BidsService {
   }
 
   private async processAutoBid(product: ProductDocument, now: Date) {
-    const minWinPrice = product.currentPrice + product.stepPrice;
+    // If no bids yet (currentPrice = 0), minimum winning price is startPrice; otherwise currentPrice + step
+    const minWinPrice = product.currentPrice === 0 ? product.startPrice : product.currentPrice + product.stepPrice;
 
     // Lấy tất cả auto bid config active cho product này
     const autoBidConfigs = await this.autoBidConfigModel
@@ -478,16 +266,19 @@ export class BidsService {
       const currentWinnerId = product.currentWinnerId?.toString();
       const highestBidderId = highestAutoBid.bidderId.toString();
       
+      // Candidate price when highest is not already the current winner:
+      const candidatePrice = secondHighestAutoBid.maxBidAmount + product.stepPrice;
+
       if (currentWinnerId === highestBidderId) {
-        // Người đang win ĐÚNG là người có max cao nhất
-        // -> Giá win = max của người thứ 2 (không cần +step)
-        finalPrice = secondHighestAutoBid.maxBidAmount;
+        // If the current winner already is the highest auto-bidder,
+        // they only need to pay the second highest's max (but cannot exceed their own max).
+        finalPrice = Math.max(minWinPrice, secondHighestAutoBid.maxBidAmount);
       } else {
-        // Người đang win KHÔNG phải người có max cao nhất
-        // -> Giá win = max của người thứ 2 + step price
-        finalPrice = secondHighestAutoBid.maxBidAmount + product.stepPrice;
+        // Otherwise, the highest bidder needs to beat the second by one step,
+        // but cannot pay more than their declared maximum.
+        finalPrice = Math.max(minWinPrice, Math.min(highestAutoBid.maxBidAmount, candidatePrice));
       }
-      
+
       winnerId = highestAutoBid.bidderId;
     }
 
