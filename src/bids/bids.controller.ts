@@ -1,7 +1,8 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Req, Delete } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Req, Delete, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { BidsService } from './bids.service';
 import { PlaceAutoBidDto } from './dto/place-auto-bid.dto';
+import { UpdateAutoBidDto } from './dto/update-auto-bid.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Bids')
@@ -77,17 +78,36 @@ export class BidsController {
     return this.bidsService.getMyAutoBidConfig(productId, userId);
   }
 
-  @Delete('products/:productId/auto-bid')
+  @Patch('products/:productId/auto-bid')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
-    summary: '[BIDDER/SELLER] Hủy auto bid', 
-    description: 'Dừng đấu giá tự động cho sản phẩm' 
+    summary: '[BIDDER/SELLER] Cập nhật auto bid', 
+    description: 'Chỉnh sửa giá tối đa của auto bid hiện tại' 
   })
-  @ApiResponse({ status: 200, description: 'Auto bid cancelled successfully' })
+  @ApiResponse({ status: 200, description: 'Auto bid updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid max bid amount or auction ended' })
   @ApiResponse({ status: 404, description: 'Auto bid config not found' })
-  cancelAutoBid(@Param('productId') productId: string, @Req() req) {
+  updateAutoBid(
+    @Param('productId') productId: string,
+    @Body() updateAutoBidDto: UpdateAutoBidDto,
+    @Req() req,
+  ) {
     const userId = req.user.userId || req.user.sub;
-    return this.bidsService.cancelAutoBid(productId, userId);
+    return this.bidsService.updateAutoBid(productId, updateAutoBidDto, userId);
+  }
+
+  @Patch('products/:productId/auto-bid/toggle')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '[BIDDER/SELLER] Bật/Tắt auto bid', 
+    description: 'Toggle trạng thái active của auto bid config (enable/disable)' 
+  })
+  @ApiResponse({ status: 200, description: 'Auto bid toggled successfully' })
+  @ApiResponse({ status: 404, description: 'Auto bid config not found' })
+  toggleAutoBid(@Param('productId') productId: string, @Req() req) {
+    const userId = req.user.userId || req.user.sub;
+    return this.bidsService.toggleAutoBid(productId, userId);
   }
 }

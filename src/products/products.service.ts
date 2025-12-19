@@ -196,15 +196,36 @@ export class ProductsService implements OnModuleInit {
     }
 
     // Validate category exists
-    await this.categoriesService.findOne(categoryId);
+    const category = await this.categoriesService.findOne(categoryId);
 
     const skip = (page - 1) * limit;
 
+    // Nếu là category cha (không có parentId), lấy tất cả sản phẩm của category con
+    let categoryFilter: any;
+    
+    if (!category.parentId) {
+      // Category cha: lấy tất cả category con
+      const childCategories = await this.categoriesService.findAll();
+      const childCategoryIds = childCategories
+        .filter(cat => cat.parentId && cat.parentId.toString() === categoryId)
+        .map(cat => cat._id);
+      
+      // Query: sản phẩm có categoryId là category cha HOẶC bất kỳ category con nào
+      categoryFilter = {
+        categoryId: { 
+          $in: [new Types.ObjectId(categoryId), ...childCategoryIds] 
+        }
+      };
+    } else {
+      // Category con: chỉ lấy sản phẩm của category này
+      categoryFilter = {
+        categoryId: new Types.ObjectId(categoryId)
+      };
+    }
+
     const [products, total] = await Promise.all([
       this.productModel
-        .find({ 
-          categoryId: new Types.ObjectId(categoryId),
-        })
+        .find(categoryFilter)
         .populate('sellerId', 'fullName ratingPositive ratingNegative')
         .populate('categoryId', 'name')
         .populate('currentWinnerId', 'fullName')
@@ -212,9 +233,7 @@ export class ProductsService implements OnModuleInit {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.productModel.countDocuments({ 
-        categoryId: new Types.ObjectId(categoryId),
-      }),
+      this.productModel.countDocuments(categoryFilter),
     ]);
 
     return {
@@ -240,6 +259,42 @@ export class ProductsService implements OnModuleInit {
         .limit(limit)
         .lean(),
       this.productModel.countDocuments(),
+    ]);
+
+    return {
+      products: products as any,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Seller xem các sản phẩm của mình
+  async getMyProducts(
+    sellerId: string,
+    page: number = 1,
+    limit: number = 10,
+    status?: string,
+  ): Promise<{ products: Product[]; total: number; page: number; totalPages: number }> {
+    const skip = (page - 1) * limit;
+
+    const filter: any = { sellerId: new Types.ObjectId(sellerId) };
+    
+    // Nếu có status filter (active, expired, sold, cancelled)
+    if (status && ['active', 'expired', 'sold', 'cancelled'].includes(status)) {
+      filter.status = status;
+    }
+
+    const [products, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate('currentWinnerId', 'fullName email ratingPositive ratingNegative')
+        .populate('categoryId', 'name')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(filter),
     ]);
 
     return {

@@ -7,6 +7,7 @@ import { Product, ProductDocument } from '../products/schemas/product.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { PlaceBidDto } from './dto/place-bid.dto';
 import { PlaceAutoBidDto } from './dto/place-auto-bid.dto';
+import { UpdateAutoBidDto } from './dto/update-auto-bid.dto';
 import { MailService } from '../common/services/mail.service';
 import { AdminService } from '../admin/admin.service';
 
@@ -347,22 +348,104 @@ export class BidsService {
     };
   }
 
-  async cancelAutoBid(productId: string, userId: string) {
+  async updateAutoBid(productId: string, updateAutoBidDto: UpdateAutoBidDto, userId: string) {
+    // Validate product exists
+    const product = await this.productModel.findById(productId);
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Check auction is still active
+    if (product.status !== 'active') {
+      throw new BadRequestException('Auction is not active');
+    }
+
+    const now = new Date();
+    if (now > product.endTime) {
+      throw new BadRequestException('Auction has ended');
+    }
+
+    // Validate new maxBidAmount
+    const minimumBid = product.currentPrice === 0 ? product.startPrice : product.currentPrice + product.stepPrice;
+    if (updateAutoBidDto.maxBidAmount < minimumBid) {
+      const minBidMessage = product.currentPrice === 0 
+        ? `Max bid amount must be at least ${minimumBid} (start price)`
+        : `Max bid amount must be at least ${minimumBid} (current price + step price)`;
+      throw new BadRequestException(minBidMessage);
+    }
+
+    // Update auto bid config
     const result = await this.autoBidConfigModel.findOneAndUpdate(
       { 
         productId: new Types.ObjectId(productId),
         bidderId: new Types.ObjectId(userId),
       },
-      { isActive: false },
+      { 
+        maxBidAmount: updateAutoBidDto.maxBidAmount,
+        isActive: true, // Ensure it's active when updating
+      },
       { new: true }
     );
 
     if (!result) {
+      throw new NotFoundException('Auto bid config not found. Please create one first.');
+    }
+
+    // Process auto bid with new max amount
+    const shouldProcessAutoBid = !product.currentWinnerId || product.currentWinnerId.toString() !== userId;
+    if (shouldProcessAutoBid) {
+      await this.processAutoBid(product, now);
+    }
+
+    // Reload product
+    const updatedProduct = await this.productModel.findById(productId);
+
+    return {
+      message: 'Auto bid updated successfully',
+      autoBidConfig: {
+        maxBidAmount: result.maxBidAmount,
+        isActive: result.isActive,
+      },
+      product: {
+        currentPrice: updatedProduct!.currentPrice,
+        currentWinnerId: updatedProduct!.currentWinnerId,
+        bidCount: updatedProduct!.bidCount,
+        endTime: updatedProduct!.endTime,
+      },
+    };
+  }
+
+  async toggleAutoBid(productId: string, userId: string) {
+    const config = await this.autoBidConfigModel.findOne({
+      productId: new Types.ObjectId(productId),
+      bidderId: new Types.ObjectId(userId),
+    });
+
+    if (!config) {
       throw new NotFoundException('Auto bid config not found');
     }
 
+    // Toggle isActive
+    config.isActive = !config.isActive;
+    await config.save();
+
+    // If enabling, process auto bid
+    if (config.isActive) {
+      const product = await this.productModel.findById(productId);
+      if (product && product.status === 'active' && new Date() < product.endTime) {
+        const shouldProcessAutoBid = !product.currentWinnerId || product.currentWinnerId.toString() !== userId;
+        if (shouldProcessAutoBid) {
+          await this.processAutoBid(product, new Date());
+        }
+      }
+    }
+
     return {
-      message: 'Auto bid cancelled successfully',
+      message: config.isActive ? 'Auto bid enabled successfully' : 'Auto bid disabled successfully',
+      autoBidConfig: {
+        maxBidAmount: config.maxBidAmount,
+        isActive: config.isActive,
+      },
     };
   }
 

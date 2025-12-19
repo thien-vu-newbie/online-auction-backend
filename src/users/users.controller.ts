@@ -1,5 +1,5 @@
-import { Controller, Get, Patch, Post, Body, UseGuards, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Patch, Post, Body, UseGuards, Req, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -14,13 +14,12 @@ export class UsersController {
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: '[USER] Xem profile', description: 'User xem thông tin cá nhân' })
-  @ApiResponse({ status: 200, description: 'User profile' })
+  @ApiOperation({ summary: '[USER] Xem profile', description: 'User xem thông tin cá nhân đầy đủ' })
+  @ApiResponse({ status: 200, description: 'User profile with full details' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   getProfile(@Req() req) {
-    return {
-      message: 'This is a protected route',
-      user: req.user,
-    };
+    const userId = req.user.userId || req.user.sub;
+    return this.usersService.getProfile(userId);
   }
 
   @Get('my-participating-products')
@@ -47,6 +46,32 @@ export class UsersController {
   getMyWonProducts(@Req() req) {
     const userId = req.user.userId || req.user.sub;
     return this.usersService.getMyWonProducts(userId);
+  }
+
+  @Get('my-products')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '[SELLER] Xem sản phẩm đã đăng bán', 
+    description: 'Seller xem tất cả sản phẩm của mình với phân trang. Có thể filter theo status (active, expired, sold, cancelled)' 
+  })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiQuery({ name: 'status', required: false, enum: ['active', 'expired', 'sold', 'cancelled'], description: 'Filter by status' })
+  @ApiResponse({ status: 200, description: 'List of seller products with pagination' })
+  getMyProducts(
+    @Req() req,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('status') status?: string,
+  ) {
+    const userId = req.user.userId || req.user.sub;
+    return this.usersService.getMyProducts(
+      userId,
+      parseInt(page),
+      parseInt(limit),
+      status,
+    );
   }
 
   @Patch('profile')

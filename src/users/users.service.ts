@@ -16,6 +16,29 @@ export class UsersService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
+  async getProfile(userId: string) {
+    const user = await this.userModel
+      .findById(userId)
+      .select('-password -refreshToken -emailVerificationOtp -emailVerificationOtpExpiry -passwordResetOtp -passwordResetOtpExpiry')
+      .lean();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Calculate rating percentage
+    const totalRatings = (user.ratingPositive || 0) + (user.ratingNegative || 0);
+    const ratingPercentage = totalRatings > 0 
+      ? ((user.ratingPositive || 0) / totalRatings) * 100 
+      : 0;
+
+    return {
+      ...user,
+      ratingPercentage: parseFloat(ratingPercentage.toFixed(1)),
+      totalRatings,
+    };
+  }
+
   async getMyParticipatingProducts(userId: string) {
     // Lấy danh sách productId mà user đã bid
     const productIds = await this.bidModel
@@ -63,6 +86,41 @@ export class UsersService {
     return {
       total: products.length,
       products,
+    };
+  }
+
+  async getMyProducts(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    status?: string,
+  ): Promise<{ products: any[], total: number, page: number, totalPages: number }> {
+    const skip = (page - 1) * limit;
+
+    const filter: any = { sellerId: new Types.ObjectId(userId) };
+    
+    // Nếu có status filter 'active, sold, expired, cancelled'
+    if (status && ['active', 'cancelled', 'expired', 'sold'].includes(status)) {
+      filter.status = status;
+    }
+
+    const [products, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate('currentWinnerId', 'fullName email ratingPositive ratingNegative')
+        .populate('categoryId', 'name')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(filter),
+    ]);
+
+    return {
+      products,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
