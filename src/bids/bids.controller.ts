@@ -78,20 +78,6 @@ export class BidsController {
     return this.bidsService.getMyAutoBidConfig(productId, userId);
   }
 
-  @Delete('products/:productId/auto-bid')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ 
-    summary: '[BIDDER/SELLER] Hủy auto bid', 
-    description: 'Dừng đấu giá tự động cho sản phẩm' 
-  })
-  @ApiResponse({ status: 200, description: 'Auto bid cancelled successfully' })
-  @ApiResponse({ status: 404, description: 'Auto bid config not found' })
-  cancelAutoBid(@Param('productId') productId: string, @Req() req) {
-    const userId = req.user.userId || req.user.sub;
-    return this.bidsService.cancelAutoBid(productId, userId);
-  }
-
   @Patch('products/:productId/auto-bid')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
@@ -111,12 +97,12 @@ export class BidsController {
     return this.bidsService.updateAutoBid(productId, updateAutoBidDto, userId);
   }
 
-  @Post('products/:productId/auto-bid/toggle')
+  @Patch('products/:productId/auto-bid/toggle')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: '[BIDDER/SELLER] Bật/Tắt auto bid', 
-    description: 'Toggle trạng thái active của auto bid config' 
+    description: 'Toggle trạng thái active của auto bid config (enable/disable)' 
   })
   @ApiResponse({ status: 200, description: 'Auto bid toggled successfully' })
   @ApiResponse({ status: 404, description: 'Auto bid config not found' })

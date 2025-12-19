@@ -306,4 +306,79 @@ export class MailService {
       `,
     });
   }
+
+  async sendNewQuestionToSeller(data: {
+    sellerEmail: string;
+    sellerName: string;
+    productName: string;
+    productId: string;
+    commenterName: string;
+    question: string;
+  }) {
+    if (!this.transporter) {
+      console.log(`⚠️  Email not configured - New question notification for ${data.sellerEmail}`);
+      return;
+    }
+
+    const productUrl = `${this.configService.get('FRONTEND_URL')}/products/${data.productId}`;
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.sellerEmail,
+      subject: `New Question About Your Product: ${data.productName}`,
+      html: `
+        <h2>New Question About Your Product</h2>
+        <p>Hello <strong>${data.sellerName}</strong>,</p>
+        
+        <p><strong>${data.commenterName}</strong> has asked a question about your product:</p>
+
+        <div style="background-color: #f5f5f5; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Question:</strong><br>
+          <p style="margin-top: 10px;">${data.question}</p>
+        </div>
+
+        <p><a href="${productUrl}" style="background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Product & Reply</a></p>
+        
+        <p>Please reply to help potential bidders understand your product better.</p>
+        <p>Thank you for using our auction platform!</p>
+      `,
+    });
+  }
+
+  async sendNewReplyNotification(data: {
+    recipientEmail: string;
+    productName: string;
+    productId: string;
+    commenterName: string;
+    replyContent: string;
+  }) {
+    if (!this.transporter) {
+      console.log(`⚠️  Email not configured - New reply notification for ${data.recipientEmail}`);
+      return;
+    }
+
+    const productUrl = `${this.configService.get('FRONTEND_URL')}/products/${data.productId}`;
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.recipientEmail,
+      subject: `New Reply on: ${data.productName}`,
+      html: `
+        <h2>New Reply on Product Discussion</h2>
+        
+        <p><strong>${data.commenterName}</strong> has replied to a discussion on:</p>
+
+        <div style="background-color: #f5f5f5; padding: 15px; border-left: 4px solid #4CAF50; margin: 20px 0;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Reply:</strong><br>
+          <p style="margin-top: 10px;">${data.replyContent}</p>
+        </div>
+
+        <p><a href="${productUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Discussion</a></p>
+        
+        <p>Thank you for using our auction platform!</p>
+      `,
+    });
+  }
 }

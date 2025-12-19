@@ -348,25 +348,6 @@ export class BidsService {
     };
   }
 
-  async cancelAutoBid(productId: string, userId: string) {
-    const result = await this.autoBidConfigModel.findOneAndUpdate(
-      { 
-        productId: new Types.ObjectId(productId),
-        bidderId: new Types.ObjectId(userId),
-      },
-      { isActive: false },
-      { new: true }
-    );
-
-    if (!result) {
-      throw new NotFoundException('Auto bid config not found');
-    }
-
-    return {
-      message: 'Auto bid cancelled successfully',
-    };
-  }
-
   async updateAutoBid(productId: string, updateAutoBidDto: UpdateAutoBidDto, userId: string) {
     // Validate product exists
     const product = await this.productModel.findById(productId);
