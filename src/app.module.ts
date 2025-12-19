@@ -14,6 +14,7 @@ import { AdminModule } from './admin/admin.module';
 import { BidsModule } from './bids/bids.module';
 import { UsersModule } from './users/users.module';
 import { WatchlistModule } from './watchlist/watchlist.module';
+import { RatingsModule } from './ratings/ratings.module';
 import { SchedulerModule as AppSchedulerModule } from './scheduler/scheduler.module';
 
 
@@ -37,6 +38,7 @@ import { SchedulerModule as AppSchedulerModule } from './scheduler/scheduler.mod
     BidsModule,
     UsersModule,
     WatchlistModule,
+    RatingsModule,
     AppSchedulerModule,
   ],
   controllers: [AppController],
