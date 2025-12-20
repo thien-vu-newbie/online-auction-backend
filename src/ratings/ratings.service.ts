@@ -209,64 +209,6 @@ export class RatingsService {
     };
   }
 
-  async cancelTransactionAndRate(productId: string, sellerId: string) {
-    const product = await this.productModel.findById(productId);
-    if (!product) {
-      throw new NotFoundException('Product not found');
-    }
-
-    // Verify user is the seller
-    if (product.sellerId.toString() !== sellerId) {
-      throw new ForbiddenException('Only the seller can cancel transaction');
-    }
-
-    if (product.status !== 'sold') {
-      throw new BadRequestException('Can only cancel transaction for sold products');
-    }
-
-    if (!product.currentWinnerId) {
-      throw new BadRequestException('This auction has no winner');
-    }
-
-    const winnerId = product.currentWinnerId.toString();
-
-    // Check if already rated
-    const existingRating = await this.ratingModel.findOne({
-      fromUserId: new Types.ObjectId(sellerId),
-      toUserId: new Types.ObjectId(winnerId),
-      productId: new Types.ObjectId(productId),
-    });
-
-    if (existingRating) {
-      throw new BadRequestException('Transaction already cancelled or rated');
-    }
-
-    // Create -1 rating with default comment
-    const rating = new this.ratingModel({
-      fromUserId: new Types.ObjectId(sellerId),
-      toUserId: new Types.ObjectId(winnerId),
-      productId: new Types.ObjectId(productId),
-      rating: -1,
-      comment: 'Người thắng không thanh toán',
-      isSellerToWinner: true,
-      isCancelledTransaction: true,
-    });
-
-    await rating.save();
-
-    // Update winner's rating counts
-    await this.updateUserRatingCounts(winnerId);
-
-    return {
-      message: 'Transaction cancelled and winner rated -1',
-      rating: {
-        _id: rating._id,
-        rating: rating.rating,
-        comment: rating.comment,
-      },
-    };
-  }
-
   private async updateUserRatingCounts(userId: string) {
     // Aggregate all ratings for this user
     const result = await this.ratingModel.aggregate([
