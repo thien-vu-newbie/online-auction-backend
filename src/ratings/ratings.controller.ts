@@ -94,20 +94,4 @@ export class RatingsController {
   getRatingsForProduct(@Param('productId') productId: string) {
     return this.ratingsService.getRatingsForProduct(productId);
   }
-
-  @Post('products/:productId/cancel-transaction')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ 
-    summary: '[SELLER] Hủy giao dịch và tự động -1 winner', 
-    description: 'Seller hủy giao dịch với winner (VD: không thanh toán), tự động đánh giá -1 với comment "Người thắng không thanh toán"' 
-  })
-  @ApiResponse({ status: 201, description: 'Transaction cancelled and winner rated -1' })
-  @ApiResponse({ status: 400, description: 'Already rated or auction not ended' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Only seller can cancel' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  cancelTransaction(@Param('productId') productId: string, @Req() req) {
-    const sellerId = req.user.userId || req.user.sub;
-    return this.ratingsService.cancelTransactionAndRate(productId, sellerId);
-  }
 }

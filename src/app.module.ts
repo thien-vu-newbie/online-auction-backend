@@ -16,6 +16,8 @@ import { UsersModule } from './users/users.module';
 import { WatchlistModule } from './watchlist/watchlist.module';
 import { RatingsModule } from './ratings/ratings.module';
 import { CommentsModule } from './comments/comments.module';
+import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
 import { SchedulerModule as AppSchedulerModule } from './scheduler/scheduler.module';
 
 
@@ -41,6 +43,8 @@ import { SchedulerModule as AppSchedulerModule } from './scheduler/scheduler.mod
     WatchlistModule,
     RatingsModule,
     CommentsModule,
+    OrdersModule,
+    PaymentsModule,
     AppSchedulerModule,
   ],
   controllers: [AppController],

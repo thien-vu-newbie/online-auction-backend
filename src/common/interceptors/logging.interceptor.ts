@@ -31,6 +31,11 @@ export class LoggingInterceptor implements NestInterceptor {
     const userAgent = headers['user-agent'];
     const now = Date.now();
 
+    // Skip logging for root endpoint to avoid Elasticsearch mapping conflicts
+    if (url === '/') {
+      return next.handle();
+    }
+
     // Log the request (avoid sending raw request bodies to external indexes)
     const requestBodyCompact = (body && typeof body !== 'object') ? String(body) : (body ? '[object]' : undefined);
 
