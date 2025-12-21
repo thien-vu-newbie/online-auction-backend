@@ -26,13 +26,26 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
-    summary: '[BIDDER/SELLER] Xem danh sách sản phẩm đang tham gia đấu giá', 
-    description: 'Bidder xem sản phẩm mình đã bid và đang active' 
+    summary: '[BIDDER/SELLER] Xem sản phẩm đang tham gia đấu giá', 
+    description: 'Bidder xem sản phẩm mình đã đặt giá (đang active, không bao gồm bị từ chối)' 
   })
   @ApiResponse({ status: 200, description: 'List of participating products' })
   getMyParticipatingProducts(@Req() req) {
     const userId = req.user.userId || req.user.sub;
     return this.usersService.getMyParticipatingProducts(userId);
+  }
+
+  @Get('my-rejected-products')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '[BIDDER] Xem sản phẩm bị từ chối', 
+    description: 'Bidder xem sản phẩm mình bị seller từ chối' 
+  })
+  @ApiResponse({ status: 200, description: 'List of rejected products' })
+  getMyRejectedProducts(@Req() req) {
+    const userId = req.user.userId || req.user.sub;
+    return this.usersService.getMyRejectedProducts(userId);
   }
 
   @Get('my-won-products')

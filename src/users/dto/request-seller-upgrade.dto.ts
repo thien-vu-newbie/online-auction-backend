@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 
 export class RequestSellerUpgradeDto {
   @ApiProperty({ 
@@ -6,5 +7,7 @@ export class RequestSellerUpgradeDto {
     description: 'Lý do xin nâng cấp lên seller (optional)', 
     required: false 
   })
+  @IsOptional()
+  @IsString()
   reason?: string;
 }

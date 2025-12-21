@@ -26,6 +26,21 @@ export class BidsController {
     return this.bidsService.getBidHistory(productId);
   }
 
+  @Get('products/:productId/seller-history')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '[SELLER] Xem lịch sử đấu giá (full data)', 
+    description: 'Seller xem bid history với đầy đủ thông tin để reject bidder' 
+  })
+  @ApiResponse({ status: 200, description: 'Bid history with full bidder info' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Not the seller' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  getSellerBidHistory(@Param('productId') productId: string, @Req() req) {
+    const sellerId = req.user.userId || req.user.sub;
+    return this.bidsService.getSellerBidHistory(productId, sellerId);
+  }
+
   @Delete('products/:productId/reject/:bidderId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
