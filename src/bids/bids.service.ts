@@ -58,6 +58,49 @@ export class BidsService {
     };
   }
 
+  async getSellerBidHistory(productId: string, sellerId: string) {
+    const product = await this.productModel.findById(productId);
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Check if user is the seller
+    if (product.sellerId.toString() !== sellerId) {
+      throw new ForbiddenException('Only the seller can view full bid history');
+    }
+
+    // Get all bids for this product (including rejected), sorted by bidTime descending
+    const bids = await this.bidModel
+      .find({ productId: new Types.ObjectId(productId) })
+      .populate('bidderId', 'fullName')
+      .sort({ bidTime: -1 })
+      .lean();
+
+    // Return full bid data with bidderId for seller actions
+    const fullBids = bids.map(bid => {
+      const bidder = bid.bidderId as any;
+      const fullName = bidder?.fullName || 'Unknown';
+      const maskedName = this.maskName(fullName);
+
+      return {
+        _id: bid._id.toString(),
+        bidderId: bidder?._id?.toString() || '',
+        bidderName: maskedName,
+        bidAmount: bid.bidAmount,
+        bidTime: bid.bidTime,
+        isRejected: bid.isRejected,
+      };
+    });
+
+    return {
+      productId,
+      productName: product.name,
+      currentPrice: product.currentPrice,
+      bidCount: product.bidCount,
+      bids: fullBids,
+    };
+  }
+
   async rejectBidder(productId: string, bidderId: string, sellerId: string) {
     const product = await this.productModel.findById(productId);
     if (!product) {

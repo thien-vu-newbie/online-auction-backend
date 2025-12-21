@@ -1,5 +1,6 @@
-services:
+version: "3.9"
 
+services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: elasticsearch
@@ -8,7 +9,7 @@ services:
       - cluster.name=elk-cluster
       - discovery.type=single-node
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
       - xpack.security.enabled=false
       - xpack.security.enrollment.enabled=false
     ulimits:
@@ -22,6 +23,7 @@ services:
       - "9300:9300"
     networks:
       - elk
+    mem_limit: 2g
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.0
@@ -46,7 +48,7 @@ services:
       - "5044:5044"
       - "9600:9600"
     environment:
-      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+      - LS_JAVA_OPTS=-Xms512m -Xmx512m
     networks:
       - elk
     depends_on:

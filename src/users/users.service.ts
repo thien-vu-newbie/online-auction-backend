@@ -40,12 +40,11 @@ export class UsersService {
   }
 
   async getMyParticipatingProducts(userId: string) {
-    // Lấy danh sách productId mà user đã bid
-    const productIds = await this.bidModel
-      .distinct('productId', { 
-        bidderId: new Types.ObjectId(userId),
-        isRejected: false,
-      });
+    // Lấy productId mà user đã bid (không bao gồm rejected)
+    const productIds = await this.bidModel.distinct('productId', { 
+      bidderId: new Types.ObjectId(userId),
+      isRejected: false,
+    });
 
     // Lấy chi tiết các sản phẩm đang active
     const products = await this.productModel
@@ -60,9 +59,42 @@ export class UsersService {
       .lean();
 
     // Thêm thông tin user có đang thắng không
-    const result = products.map(product => ({
+    const result = products.map((product) => ({
       ...product,
       isWinning: product.currentWinnerId?._id?.toString() === userId,
+    }));
+
+    return {
+      total: result.length,
+      products: result,
+    };
+  }
+
+  async getMyRejectedProducts(userId: string) {
+    // Lấy productId mà user bị reject
+    const rejectedBids = await this.bidModel
+      .find({
+        bidderId: new Types.ObjectId(userId),
+        isRejected: true,
+      })
+      .distinct('productId');
+
+    // Lấy chi tiết các sản phẩm đang active
+    const products = await this.productModel
+      .find({
+        _id: { $in: rejectedBids },
+        status: 'active',
+        endTime: { $gt: new Date() },
+      })
+      .populate('categoryId', 'name')
+      .populate('currentWinnerId', 'fullName')
+      .sort({ endTime: 1 })
+      .lean();
+
+    // Thêm flag isRejected
+    const result = products.map((product) => ({
+      ...product,
+      isRejected: true,
     }));
 
     return {
