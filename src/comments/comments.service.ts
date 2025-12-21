@@ -102,7 +102,6 @@ export class CommentsService {
         productId: new Types.ObjectId(productId),
       })
       .populate('userId', 'fullName email')
-      .populate('parentId')
       .sort({ createdAt: 1 })
       .lean();
 
