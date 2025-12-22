@@ -19,6 +19,7 @@ import { CommentsModule } from './comments/comments.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SchedulerModule as AppSchedulerModule } from './scheduler/scheduler.module';
+import { ChatModule } from './chat/chat.module';
 
 
 @Module({
@@ -46,6 +47,7 @@ import { SchedulerModule as AppSchedulerModule } from './scheduler/scheduler.mod
     OrdersModule,
     PaymentsModule,
     AppSchedulerModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
