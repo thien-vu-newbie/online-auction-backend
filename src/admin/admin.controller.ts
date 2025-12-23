@@ -94,4 +94,15 @@ export class AdminController {
   ) {
     return this.adminService.getPendingSellerRequests(parseInt(page), parseInt(limit));
   }
+
+  @Get('dashboard')
+  @ApiOperation({ 
+    summary: '[ADMIN] Dashboard statistics', 
+    description: 'Lấy thống kê tổng quan cho admin dashboard: user growth, product growth, revenue, category distribution' 
+  })
+  @ApiResponse({ status: 200, description: 'Dashboard statistics' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin only' })
+  getDashboardStats() {
+    return this.adminService.getDashboardStats();
+  }
 }

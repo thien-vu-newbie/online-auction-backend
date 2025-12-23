@@ -3,14 +3,19 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { AdminConfig, AdminConfigDocument } from './schemas/admin-config.schema';
+import { Product, ProductDocument } from '../products/schemas/product.schema';
+import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 import { UpgradeSellerDto } from './dto/upgrade-seller.dto';
 import { UpdateConfigDto } from './dto/update-config.dto';
+import { DashboardStatsDto } from './dto/dashboard-stats.dto';
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(AdminConfig.name) private adminConfigModel: Model<AdminConfigDocument>,
+    @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
   ) {}
 
 
@@ -134,14 +139,119 @@ export class AdminService {
     const config = await this.adminConfigModel.findOneAndUpdate(
       { configKey: 'global' },
       { $set: updateConfigDto },
-      { new: true, upsert: true },
+      { new: true, upsert: true }
     );
-
     return {
       message: 'Config updated successfully',
       config,
     };
   }
 
+  // ============ Dashboard Statistics ============
 
+  async getDashboardStats(): Promise<DashboardStatsDto> {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+
+    // Summary statistics
+    const [
+      totalUsers,
+      newUsers,
+      totalProducts,
+      newProducts,
+      activeAuctions,
+      endedAuctions,
+      pendingSellerRequests,
+      approvedSellerRequests,
+    ] = await Promise.all([
+      this.userModel.countDocuments(),
+      this.userModel.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
+      this.productModel.countDocuments(),
+      this.productModel.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
+      this.productModel.countDocuments({ status: 'active', endTime: { $gt: now } }),
+      this.productModel.countDocuments({ status: { $in: ['expired', 'sold'] } }),
+      this.userModel.countDocuments({ isRequestingSellerUpgrade: true }),
+      this.userModel.countDocuments({ 
+        role: 'seller',
+        sellerUpgradeExpiry: { $exists: true, $ne: null },
+      }),
+    ]);
+
+    // Calculate total revenue (sum of all sold products' currentPrice)
+    const revenueResult = await this.productModel.aggregate([
+      { $match: { status: 'sold' } },
+      { $group: { _id: null, total: { $sum: '$currentPrice' } } },
+    ]);
+    const totalRevenue = revenueResult.length > 0 ? revenueResult[0].total : 0;
+
+    // User growth over last 30 days (daily)
+    const userGrowth = await this.userModel.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, date: '$_id', count: 1 } },
+    ]);
+
+    // Product growth over last 30 days (daily)
+    const productGrowth = await this.productModel.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, date: '$_id', count: 1 } },
+    ]);
+
+    // Revenue by month (last 6 months)
+    const revenueByMonth = await this.productModel.aggregate([
+      { 
+        $match: { 
+          status: 'sold',
+          updatedAt: { $gte: sixMonthsAgo },
+        } 
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$updatedAt' } },
+          revenue: { $sum: '$currentPrice' },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, month: '$_id', revenue: 1 } },
+    ]);
+
+    // Category distribution
+    const categories = await this.categoryModel.find().lean();
+    const categoryDistribution = await Promise.all(
+      categories.map(async (cat) => ({
+        name: cat.name,
+        count: await this.productModel.countDocuments({ categoryId: cat._id }),
+      }))
+    );
+
+    return {
+      totalUsers,
+      newUsers,
+      totalProducts,
+      newProducts,
+      activeAuctions,
+      endedAuctions,
+      totalRevenue,
+      pendingSellerRequests,
+      approvedSellerRequests,
+      userGrowth,
+      productGrowth,
+      revenueByMonth,
+      categoryDistribution: categoryDistribution.filter((c) => c.count > 0),
+    };
+  }
 }
