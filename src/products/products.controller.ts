@@ -64,34 +64,46 @@ export class ProductsController {
   @Get('homepage/top-ending-soon')
   @ApiOperation({ 
     summary: '[PUBLIC] Top sản phẩm gần kết thúc', 
-    description: 'Hiển thị sản phẩm sắp kết thúc đấu giá (endTime gần nhất). Mặc định limit=5' 
+    description: 'Hiển thị sản phẩm sắp kết thúc đấu giá (endTime gần nhất). Mặc định limit=5, page=1' 
   })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 5 })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiResponse({ status: 200, description: 'Top products ending soon' })
-  getTopEndingSoon(@Query('limit') limit?: number) {
-    return this.productsService.getTopEndingSoon(limit);
+  getTopEndingSoon(
+    @Query('limit') limit?: number,
+    @Query('page') page?: number,
+  ) {
+    return this.productsService.getTopEndingSoon(limit, page);
   }
 
   @Get('homepage/top-most-bids')
   @ApiOperation({ 
     summary: '[PUBLIC] Top sản phẩm nhiều lượt bid nhất', 
-    description: 'Hiển thị sản phẩm có số lượt đấu giá cao nhất. Mặc định limit=5' 
+    description: 'Hiển thị sản phẩm có số lượt đấu giá cao nhất. Mặc định limit=5, page=1' 
   })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 5 })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiResponse({ status: 200, description: 'Top products with most bids' })
-  getTopMostBids(@Query('limit') limit?: number) {
-    return this.productsService.getTopMostBids(limit);
+  getTopMostBids(
+    @Query('limit') limit?: number,
+    @Query('page') page?: number,
+  ) {
+    return this.productsService.getTopMostBids(limit, page);
   }
 
   @Get('homepage/top-highest-price')
   @ApiOperation({ 
     summary: '[PUBLIC] Top sản phẩm giá cao nhất', 
-    description: 'Hiển thị sản phẩm có giá hiện tại cao nhất. Mặc định limit=5' 
+    description: 'Hiển thị sản phẩm có giá hiện tại cao nhất. Mặc định limit=5, page=1' 
   })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 5 })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiResponse({ status: 200, description: 'Top products with highest price' })
-  getTopHighestPrice(@Query('limit') limit?: number) {
-    return this.productsService.getTopHighestPrice(limit);
+  getTopHighestPrice(
+    @Query('limit') limit?: number,
+    @Query('page') page?: number,
+  ) {
+    return this.productsService.getTopHighestPrice(limit, page);
   }
 
   @Get('search')

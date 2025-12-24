@@ -88,8 +88,9 @@ export class ProductsService implements OnModuleInit {
   }
 
   // Homepage: Top 5 sản phẩm gần kết thúc
-  async getTopEndingSoon(limit: number = 5): Promise<Product[]> {
+  async getTopEndingSoon(limit: number = 5, page: number = 1): Promise<Product[]> {
     const now = new Date();
+    const skip = (page - 1) * limit;
     return this.productModel
       .find({
         status: 'active',
@@ -99,30 +100,35 @@ export class ProductsService implements OnModuleInit {
       .populate('currentWinnerId', 'fullName')
       .populate('categoryId', 'name')
       .sort({ endTime: 1 }) // Sắp xếp theo thời gian kết thúc tăng dần
+      .skip(skip)
       .limit(limit)
       .lean();
   }
 
   // Homepage: Top 5 sản phẩm nhiều lượt bid nhất
-  async getTopMostBids(limit: number = 5): Promise<Product[]> {
+  async getTopMostBids(limit: number = 5, page: number = 1): Promise<Product[]> {
+    const skip = (page - 1) * limit;
     return this.productModel
       .find({ status: 'active' })
       .populate('sellerId', 'fullName ratingPositive ratingNegative')
       .populate('currentWinnerId', 'fullName')
       .populate('categoryId', 'name')
       .sort({ bidCount: -1 }) // Sắp xếp theo bidCount giảm dần
+      .skip(skip)
       .limit(limit)
       .lean();
   }
 
   // Homepage: Top 5 sản phẩm giá cao nhất
-  async getTopHighestPrice(limit: number = 5): Promise<Product[]> {
+  async getTopHighestPrice(limit: number = 5, page: number = 1): Promise<Product[]> {
+    const skip = (page - 1) * limit;
     return this.productModel
       .find({ status: 'active' })
       .populate('sellerId', 'fullName ratingPositive ratingNegative')
       .populate('currentWinnerId', 'fullName')
       .populate('categoryId', 'name')
       .sort({ currentPrice: -1 }) // Sắp xếp theo giá giảm dần
+      .skip(skip)
       .limit(limit)
       .lean();
   }
@@ -205,10 +211,12 @@ export class ProductsService implements OnModuleInit {
     
     if (!category.parentId) {
       // Category cha: lấy tất cả category con
-      const childCategories = await this.categoriesService.findAll();
-      const childCategoryIds = childCategories
-        .filter(cat => cat.parentId && cat.parentId.toString() === categoryId)
-        .map(cat => cat._id);
+      const childCategories = await this.categoriesService['categoryModel']
+        .find({ parentId: new Types.ObjectId(categoryId) })
+        .select('_id')
+        .lean();
+      
+      const childCategoryIds = childCategories.map(cat => cat._id);
       
       // Query: sản phẩm có categoryId là category cha HOẶC bất kỳ category con nào
       categoryFilter = {
