@@ -129,11 +129,10 @@ export class ProductsService implements OnModuleInit {
   // Homepage: Top 5 sản phẩm nhiều lượt bid nhất
   async getTopMostBids(limit: number = 5, page: number = 1): Promise<{ products: Product[]; total: number; page: number; limit: number; totalPages: number }> {
     const skip = (page - 1) * limit;
-    const filter = { status: 'active' };
 
     const [products, total] = await Promise.all([
       this.productModel
-        .find(filter)
+        .find()
         .populate('sellerId', 'fullName ratingPositive ratingNegative')
         .populate('currentWinnerId', 'fullName')
         .populate('categoryId', 'name')
@@ -141,7 +140,7 @@ export class ProductsService implements OnModuleInit {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.productModel.countDocuments(filter),
+      this.productModel.countDocuments(),
     ]);
 
     return {
@@ -156,11 +155,10 @@ export class ProductsService implements OnModuleInit {
   // Homepage: Top 5 sản phẩm giá cao nhất
   async getTopHighestPrice(limit: number = 5, page: number = 1): Promise<{ products: Product[]; total: number; page: number; limit: number; totalPages: number }> {
     const skip = (page - 1) * limit;
-    const filter = { status: 'active' };
 
     const [products, total] = await Promise.all([
       this.productModel
-        .find(filter)
+        .find()
         .populate('sellerId', 'fullName ratingPositive ratingNegative')
         .populate('currentWinnerId', 'fullName')
         .populate('categoryId', 'name')
@@ -168,7 +166,7 @@ export class ProductsService implements OnModuleInit {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.productModel.countDocuments(filter),
+      this.productModel.countDocuments(),
     ]);
 
     return {
