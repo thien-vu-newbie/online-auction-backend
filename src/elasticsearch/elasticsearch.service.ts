@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ElasticsearchService as NestElasticsearchService } from '@nestjs/elasticsearch';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import { Product } from '../products/schemas/product.schema';
+import { Category, CategoryDocument } from '../categories/schemas/category.schema';
 
 export interface ProductSearchBody {
   id: string;
@@ -27,6 +30,7 @@ export class ElasticsearchService {
 
   constructor(
     private readonly esService: NestElasticsearchService,
+    @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
   ) {}
 
   async createIndex() {
@@ -167,14 +171,27 @@ export class ElasticsearchService {
       must.push({
         multi_match: {
           query,
-          fields: ['name^3', 'description^2', 'categoryName'],
+          fields: ['name^5', 'description^2'],
           fuzziness: 'AUTO',
         },
       });
     }
 
     if (categoryId) {
-      must.push({ term: { categoryId } });
+      // Check if this is a parent category (has children)
+      const childCategories = await this.categoryModel
+        .find({ parentId: new Types.ObjectId(categoryId) })
+        .select('_id')
+        .lean();
+      
+      if (childCategories.length > 0) {
+        // Parent category: search in parent + all children
+        const categoryIds = [categoryId, ...childCategories.map(c => c._id.toString())];
+        must.push({ terms: { categoryId: categoryIds } });
+      } else {
+        // Child category or leaf: exact match
+        must.push({ term: { categoryId } });
+      }
     }
 
     // Build sort

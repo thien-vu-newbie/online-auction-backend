@@ -27,7 +27,7 @@ export class AdminService {
     const [users, total] = await Promise.all([
       this.userModel
         .find({ isRequestingSellerUpgrade: true })
-        .select('fullName email role isRequestingSellerUpgrade sellerUpgradeRequestDate ratingPositive ratingNegative')
+        .select('fullName email role isRequestingSellerUpgrade sellerUpgradeRequestDate sellerUpgradeExpiry ratingPositive ratingNegative')
         .sort({ sellerUpgradeRequestDate: -1 })
         .skip(skip)
         .limit(limit)

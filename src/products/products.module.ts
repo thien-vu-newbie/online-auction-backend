@@ -5,6 +5,10 @@ import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
 import { Product, ProductSchema, ProductDocument } from './schemas/product.schema';
 import { DescriptionHistory, DescriptionHistorySchema } from './schemas/description-history.schema';
+import { Bid, BidSchema } from '../bids/schemas/bid.schema';
+import { AutoBidConfig, AutoBidConfigSchema } from '../bids/schemas/auto-bid-config.schema';
+import { Watchlist, WatchlistSchema } from '../watchlist/schemas/watchlist.schema';
+import { Comment, CommentSchema } from '../comments/schemas/comment.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { CloudinaryService } from '../common/services/cloudinary.service';
 import { CategoriesModule } from '../categories/categories.module';
@@ -16,6 +20,10 @@ import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
     MongooseModule.forFeature([
       { name: Product.name, schema: ProductSchema },
       { name: DescriptionHistory.name, schema: DescriptionHistorySchema },
+      { name: Bid.name, schema: BidSchema },
+      { name: AutoBidConfig.name, schema: AutoBidConfigSchema },
+      { name: Watchlist.name, schema: WatchlistSchema },
+      { name: Comment.name, schema: CommentSchema },
       { name: User.name, schema: UserSchema }, // For RolesGuard
     ]),
     CategoriesModule, // Import để dùng CategoriesService
