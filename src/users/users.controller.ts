@@ -27,12 +27,18 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: '[BIDDER/SELLER] Xem sản phẩm đang tham gia đấu giá', 
-    description: 'Bidder xem sản phẩm mình đã đặt giá (đang active, không bao gồm bị từ chối)' 
+    description: 'Bidder xem sản phẩm mình đã đặt giá (đang active, không bao gồm bị từ chối) với phân trang' 
   })
-  @ApiResponse({ status: 200, description: 'List of participating products' })
-  getMyParticipatingProducts(@Req() req) {
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'List of participating products with pagination' })
+  getMyParticipatingProducts(
+    @Req() req,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
     const userId = req.user.userId || req.user.sub;
-    return this.usersService.getMyParticipatingProducts(userId);
+    return this.usersService.getMyParticipatingProducts(userId, parseInt(page), parseInt(limit));
   }
 
   @Get('my-rejected-products')
@@ -40,12 +46,18 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: '[BIDDER] Xem sản phẩm bị từ chối', 
-    description: 'Bidder xem sản phẩm mình bị seller từ chối' 
+    description: 'Bidder xem sản phẩm mình bị seller từ chối với phân trang' 
   })
-  @ApiResponse({ status: 200, description: 'List of rejected products' })
-  getMyRejectedProducts(@Req() req) {
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'List of rejected products with pagination' })
+  getMyRejectedProducts(
+    @Req() req,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
     const userId = req.user.userId || req.user.sub;
-    return this.usersService.getMyRejectedProducts(userId);
+    return this.usersService.getMyRejectedProducts(userId, parseInt(page), parseInt(limit));
   }
 
   @Get('my-won-products')
@@ -53,12 +65,18 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: '[BIDDER/SELLER] Xem danh sách sản phẩm đã thắng', 
-    description: 'Bidder xem sản phẩm mình thắng đấu giá (giá cao nhất)' 
+    description: 'Bidder xem sản phẩm mình thắng đấu giá (giá cao nhất) với phân trang' 
   })
-  @ApiResponse({ status: 200, description: 'List of won products' })
-  getMyWonProducts(@Req() req) {
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'List of won products with pagination' })
+  getMyWonProducts(
+    @Req() req,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
     const userId = req.user.userId || req.user.sub;
-    return this.usersService.getMyWonProducts(userId);
+    return this.usersService.getMyWonProducts(userId, parseInt(page), parseInt(limit));
   }
 
   @Get('my-products')

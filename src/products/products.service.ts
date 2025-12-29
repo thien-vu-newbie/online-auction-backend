@@ -9,6 +9,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { DescriptionHistory, DescriptionHistoryDocument } from './schemas/description-history.schema';
+import { Bid } from '../bids/schemas/bid.schema';
+import { AutoBidConfig } from '../bids/schemas/auto-bid-config.schema';
+import { Watchlist } from '../watchlist/schemas/watchlist.schema';
+import { Comment } from '../comments/schemas/comment.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AddDescriptionDto } from './dto/add-description.dto';
@@ -23,6 +27,10 @@ export class ProductsService implements OnModuleInit {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(DescriptionHistory.name) 
     private descriptionHistoryModel: Model<DescriptionHistoryDocument>,
+    @InjectModel(Bid.name) private bidsModel: Model<Bid>,
+    @InjectModel(AutoBidConfig.name) private autoBidModel: Model<AutoBidConfig>,
+    @InjectModel(Watchlist.name) private watchlistModel: Model<Watchlist>,
+    @InjectModel(Comment.name) private commentModel: Model<Comment>,
     private cloudinaryService: CloudinaryService,
     private categoriesService: CategoriesService,
     private elasticsearchService: ElasticsearchService,
@@ -88,49 +96,88 @@ export class ProductsService implements OnModuleInit {
   }
 
   // Homepage: Top 5 sản phẩm gần kết thúc
-  async getTopEndingSoon(limit: number = 5, page: number = 1): Promise<Product[]> {
+  async getTopEndingSoon(limit: number = 5, page: number = 1): Promise<{ products: Product[]; total: number; page: number; limit: number; totalPages: number }> {
     const now = new Date();
     const skip = (page - 1) * limit;
-    return this.productModel
-      .find({
-        status: 'active',
-        endTime: { $gt: now },
-      })
-      .populate('sellerId', 'fullName ratingPositive ratingNegative')
-      .populate('currentWinnerId', 'fullName')
-      .populate('categoryId', 'name')
-      .sort({ endTime: 1 }) // Sắp xếp theo thời gian kết thúc tăng dần
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const filter = {
+      status: 'active',
+      endTime: { $gt: now },
+    };
+
+    const [products, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate('sellerId', 'fullName ratingPositive ratingNegative')
+        .populate('currentWinnerId', 'fullName')
+        .populate('categoryId', 'name')
+        .sort({ endTime: 1 }) // Sắp xếp theo thời gian kết thúc tăng dần
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(filter),
+    ]);
+
+    return {
+      products: products as any,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   // Homepage: Top 5 sản phẩm nhiều lượt bid nhất
-  async getTopMostBids(limit: number = 5, page: number = 1): Promise<Product[]> {
+  async getTopMostBids(limit: number = 5, page: number = 1): Promise<{ products: Product[]; total: number; page: number; limit: number; totalPages: number }> {
     const skip = (page - 1) * limit;
-    return this.productModel
-      .find({ status: 'active' })
-      .populate('sellerId', 'fullName ratingPositive ratingNegative')
-      .populate('currentWinnerId', 'fullName')
-      .populate('categoryId', 'name')
-      .sort({ bidCount: -1 }) // Sắp xếp theo bidCount giảm dần
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const filter = { status: 'active' };
+
+    const [products, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate('sellerId', 'fullName ratingPositive ratingNegative')
+        .populate('currentWinnerId', 'fullName')
+        .populate('categoryId', 'name')
+        .sort({ bidCount: -1 }) // Sắp xếp theo bidCount giảm dần
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(filter),
+    ]);
+
+    return {
+      products: products as any,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   // Homepage: Top 5 sản phẩm giá cao nhất
-  async getTopHighestPrice(limit: number = 5, page: number = 1): Promise<Product[]> {
+  async getTopHighestPrice(limit: number = 5, page: number = 1): Promise<{ products: Product[]; total: number; page: number; limit: number; totalPages: number }> {
     const skip = (page - 1) * limit;
-    return this.productModel
-      .find({ status: 'active' })
-      .populate('sellerId', 'fullName ratingPositive ratingNegative')
-      .populate('currentWinnerId', 'fullName')
-      .populate('categoryId', 'name')
-      .sort({ currentPrice: -1 }) // Sắp xếp theo giá giảm dần
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const filter = { status: 'active' };
+
+    const [products, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate('sellerId', 'fullName ratingPositive ratingNegative')
+        .populate('currentWinnerId', 'fullName')
+        .populate('categoryId', 'name')
+        .sort({ currentPrice: -1 }) // Sắp xếp theo giá giảm dần
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(filter),
+    ]);
+
+    return {
+      products: products as any,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   // Elasticsearch search với tiếng Việt
@@ -472,11 +519,29 @@ export class ProductsService implements OnModuleInit {
     // Decrement category product count
     await this.categoriesService.decrementProductCount(product.categoryId.toString());
 
+    const productObjectId = new Types.ObjectId(id);
+
+    // Delete related data (không quan trọng sau khi xóa product)
+    await Promise.all([
+      // Delete description history
+      this.descriptionHistoryModel.deleteMany({ productId: productObjectId }),
+      // Delete all bids
+      this.bidsModel.deleteMany({ productId: productObjectId }),
+      // Delete auto bid configs
+      this.autoBidModel.deleteMany({ productId: productObjectId }),
+      // Delete from watchlists
+      this.watchlistModel.updateMany(
+        { 'products.productId': productObjectId },
+        { $pull: { products: { productId: productObjectId } } }
+      ),
+      // Delete comments
+      this.commentModel.deleteMany({ productId: productObjectId }),
+    ]);
+
+    // Note: Giữ lại orders và ratings vì quan trọng cho lịch sử giao dịch và uy tín
+
     // Delete product - hooks tự động xóa khỏi Elasticsearch
     await this.productModel.findByIdAndDelete(id);
-
-    // Delete description history
-    await this.descriptionHistoryModel.deleteMany({ productId: new Types.ObjectId(id) });
 
     return { message: 'Product deleted successfully' };
   }

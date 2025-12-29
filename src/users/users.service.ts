@@ -39,24 +39,33 @@ export class UsersService {
     };
   }
 
-  async getMyParticipatingProducts(userId: string) {
+  async getMyParticipatingProducts(userId: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+
     // Lấy productId mà user đã bid (không bao gồm rejected)
     const productIds = await this.bidModel.distinct('productId', { 
       bidderId: new Types.ObjectId(userId),
       isRejected: false,
     });
 
-    // Lấy chi tiết các sản phẩm đang active
-    const products = await this.productModel
-      .find({
-        _id: { $in: productIds },
-        status: 'active',
-        endTime: { $gt: new Date() },
-      })
-      .populate('categoryId', 'name')
-      .populate('currentWinnerId', 'fullName')
-      .sort({ endTime: 1 })
-      .lean();
+    const filter = {
+      _id: { $in: productIds },
+      status: 'active',
+      endTime: { $gt: new Date() },
+    };
+
+    // Lấy chi tiết các sản phẩm đang active với pagination
+    const [products, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate('categoryId', 'name')
+        .populate('currentWinnerId', 'fullName')
+        .sort({ endTime: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(filter),
+    ]);
 
     // Thêm thông tin user có đang thắng không
     const result = products.map((product) => ({
@@ -65,12 +74,16 @@ export class UsersService {
     }));
 
     return {
-      total: result.length,
       products: result,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
-  async getMyRejectedProducts(userId: string) {
+  async getMyRejectedProducts(userId: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+
     // Lấy productId mà user bị reject
     const rejectedBids = await this.bidModel
       .find({
@@ -79,17 +92,24 @@ export class UsersService {
       })
       .distinct('productId');
 
-    // Lấy chi tiết các sản phẩm đang active
-    const products = await this.productModel
-      .find({
-        _id: { $in: rejectedBids },
-        status: 'active',
-        endTime: { $gt: new Date() },
-      })
-      .populate('categoryId', 'name')
-      .populate('currentWinnerId', 'fullName')
-      .sort({ endTime: 1 })
-      .lean();
+    const filter = {
+      _id: { $in: rejectedBids },
+      status: 'active',
+      endTime: { $gt: new Date() },
+    };
+
+    // Lấy chi tiết các sản phẩm đang active với pagination
+    const [products, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate('categoryId', 'name')
+        .populate('currentWinnerId', 'fullName')
+        .sort({ endTime: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(filter),
+    ]);
 
     // Thêm flag isRejected
     const result = products.map((product) => ({
@@ -98,26 +118,39 @@ export class UsersService {
     }));
 
     return {
-      total: result.length,
       products: result,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
-  async getMyWonProducts(userId: string) {
-    // Lấy sản phẩm đã thắng (currentWinnerId = userId và status = sold)
-    const products = await this.productModel
-      .find({
-        currentWinnerId: new Types.ObjectId(userId),
-        status: 'sold',
-      })
-      .populate('categoryId', 'name')
-      .populate('sellerId', 'fullName email')
-      .sort({ endTime: -1 })
-      .lean();
+  async getMyWonProducts(userId: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+
+    const filter = {
+      currentWinnerId: new Types.ObjectId(userId),
+      status: 'sold',
+    };
+
+    // Lấy sản phẩm đã thắng (currentWinnerId = userId và status = sold) với pagination
+    const [products, total] = await Promise.all([
+      this.productModel
+        .find(filter)
+        .populate('categoryId', 'name')
+        .populate('sellerId', 'fullName email')
+        .sort({ endTime: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.productModel.countDocuments(filter),
+    ]);
 
     return {
-      total: products.length,
       products,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
     };
   }
 

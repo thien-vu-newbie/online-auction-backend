@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ElasticsearchModule as NestElasticsearchModule } from '@nestjs/elasticsearch';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import { ElasticsearchService } from './elasticsearch.service';
+import { Category, CategorySchema } from '../categories/schemas/category.schema';
 
 @Module({
   imports: [
+    MongooseModule.forFeature([{ name: Category.name, schema: CategorySchema }]),
     NestElasticsearchModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
