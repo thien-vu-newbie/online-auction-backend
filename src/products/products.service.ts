@@ -551,6 +551,42 @@ export class ProductsService implements OnModuleInit {
     return product.sellerId.toString() === sellerId;
   }
 
+  // Buy Now: Mua sản phẩm ngay với giá buyNowPrice
+  async buyNow(productId: string, userId: string): Promise<Product> {
+    const product = await this.productModel.findById(productId);
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Kiểm tra sản phẩm có giá mua ngay không
+    if (!product.buyNowPrice || product.buyNowPrice <= 0) {
+      throw new BadRequestException('This product does not have buy now price');
+    }
+
+    // Kiểm tra sản phẩm chưa kết thúc
+    if (product.status !== 'active') {
+      throw new BadRequestException('Product is not available for buy now');
+    }
+
+    // Kiểm tra người mua không phải là người bán
+    if (product.sellerId.toString() === userId) {
+      throw new BadRequestException('Seller cannot buy their own product');
+    }
+
+    // Cập nhật sản phẩm: đặt người mua làm winner, set giá = buyNowPrice, đổi status = sold
+    product.currentWinnerId = new Types.ObjectId(userId);
+    product.currentPrice = product.buyNowPrice;
+    product.status = 'sold';
+    product.endTime = new Date(); // Kết thúc ngay lập tức
+
+    const updatedProduct = await product.save();
+
+    // TODO: Có thể gửi email thông báo cho seller và buyer
+
+    return updatedProduct;
+  }
+
   // Migration: Reindex all products to Elasticsearch
   async reindexElasticsearch(): Promise<{ message: string, indexed: number }> {
     // Get all products from MongoDB

@@ -203,6 +203,24 @@ export class ProductsController {
     return this.productsService.addDescription(id, addDescriptionDto, sellerId);
   }
 
+  @Post(':id/buy-now')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: '[USER] Mua sản phẩm ngay lập tức', 
+    description: 'Người dùng mua sản phẩm ngay với giá buyNowPrice, kết thúc đấu giá ngay lập tức' 
+  })
+  @ApiResponse({ status: 200, description: 'Product purchased successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request or buyNowPrice not available' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async buyNow(
+    @Param('id') id: string,
+    @Req() req,
+  ) {
+    const userId = req.user.userId || req.user.sub;
+    return this.productsService.buyNow(id, userId);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
