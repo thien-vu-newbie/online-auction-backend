@@ -154,12 +154,13 @@ export class ProductsController {
   @Get(':id')
   @ApiOperation({ 
     summary: '[PUBLIC] Xem chi tiết sản phẩm', 
-    description: 'Hiển thị đầy đủ thông tin sản phẩm + lịch sử mô tả + 5 sản phẩm liên quan' 
+    description: 'Hiển thị đầy đủ thông tin sản phẩm + lịch sử mô tả + 5 sản phẩm liên quan. Chỉ xem được nếu startTime <= now, trừ khi là seller của sản phẩm.' 
   })
   @ApiResponse({ status: 200, description: 'Product details with description history and related products' })
   @ApiResponse({ status: 404, description: 'Product not found' })
-  findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req) {
+    const userId = req?.user?.userId || req?.user?.sub;
+    return this.productsService.findOne(id, userId);
   }
 
   @Patch(':id')

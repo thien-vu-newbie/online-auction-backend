@@ -101,6 +101,7 @@ export class ProductsService implements OnModuleInit {
     const skip = (page - 1) * limit;
     const filter = {
       status: 'active',
+      startTime: { $lte: now },
       endTime: { $gt: now },
     };
 
@@ -128,11 +129,15 @@ export class ProductsService implements OnModuleInit {
 
   // Homepage: Top 5 sản phẩm nhiều lượt bid nhất
   async getTopMostBids(limit: number = 5, page: number = 1): Promise<{ products: Product[]; total: number; page: number; limit: number; totalPages: number }> {
+    const now = new Date();
     const skip = (page - 1) * limit;
+    const filter = {
+      startTime: { $lte: now },
+    };
 
     const [products, total] = await Promise.all([
       this.productModel
-        .find()
+        .find(filter)
         .populate('sellerId', 'fullName ratingPositive ratingNegative')
         .populate('currentWinnerId', 'fullName')
         .populate('categoryId', 'name')
@@ -140,7 +145,7 @@ export class ProductsService implements OnModuleInit {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.productModel.countDocuments(),
+      this.productModel.countDocuments(filter),
     ]);
 
     return {
@@ -154,11 +159,15 @@ export class ProductsService implements OnModuleInit {
 
   // Homepage: Top 5 sản phẩm giá cao nhất
   async getTopHighestPrice(limit: number = 5, page: number = 1): Promise<{ products: Product[]; total: number; page: number; limit: number; totalPages: number }> {
+    const now = new Date();
     const skip = (page - 1) * limit;
+    const filter = {
+      startTime: { $lte: now },
+    };
 
     const [products, total] = await Promise.all([
       this.productModel
-        .find()
+        .find(filter)
         .populate('sellerId', 'fullName ratingPositive ratingNegative')
         .populate('currentWinnerId', 'fullName')
         .populate('categoryId', 'name')
@@ -166,7 +175,7 @@ export class ProductsService implements OnModuleInit {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.productModel.countDocuments(),
+      this.productModel.countDocuments(filter),
     ]);
 
     return {
@@ -254,6 +263,8 @@ export class ProductsService implements OnModuleInit {
     // Nếu là category cha (không có parentId), lấy tất cả sản phẩm của category con
     let categoryFilter: any;
     
+    const now = new Date();
+    
     if (!category.parentId) {
       // Category cha: lấy tất cả category con
       const childCategories = await this.categoriesService['categoryModel']
@@ -267,12 +278,14 @@ export class ProductsService implements OnModuleInit {
       categoryFilter = {
         categoryId: { 
           $in: [new Types.ObjectId(categoryId), ...childCategoryIds] 
-        }
+        },
+        startTime: { $lte: now },
       };
     } else {
       // Category con: chỉ lấy sản phẩm của category này
       categoryFilter = {
-        categoryId: new Types.ObjectId(categoryId)
+        categoryId: new Types.ObjectId(categoryId),
+        startTime: { $lte: now },
       };
     }
 
@@ -299,11 +312,15 @@ export class ProductsService implements OnModuleInit {
 
   // Get all products with pagination, sorted by creation time (newest first)
   async getAll(page: number = 1, limit: number = 10): Promise<{ products: Product[]; total: number; page: number; totalPages: number }> {
+    const now = new Date();
     const skip = (page - 1) * limit;
+    const filter = {
+      startTime: { $lte: now },
+    };
 
     const [products, total] = await Promise.all([
       this.productModel
-        .find()
+        .find(filter)
         .populate('sellerId', 'fullName ratingPositive ratingNegative')
         .populate('currentWinnerId', 'fullName')
         .populate('categoryId', 'name')
@@ -311,7 +328,7 @@ export class ProductsService implements OnModuleInit {
         .skip(skip)
         .limit(limit)
         .lean(),
-      this.productModel.countDocuments(),
+      this.productModel.countDocuments(filter),
     ]);
 
     return {
@@ -358,7 +375,7 @@ export class ProductsService implements OnModuleInit {
     };
   }
 
-  async findOne(id: string): Promise<any> {
+  async findOne(id: string, userId?: string): Promise<any> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid product ID');
     }
@@ -374,13 +391,21 @@ export class ProductsService implements OnModuleInit {
       throw new NotFoundException('Product not found');
     }
 
+    // Kiểm tra startTime: chỉ cho xem nếu startTime <= now, trừ khi là seller
+    const now = new Date();
+    const isSeller = userId && product.sellerId._id.toString() === userId;
+    
+    if (!isSeller && new Date(product.startTime) > now) {
+      throw new NotFoundException('Product not found');
+    }
+
     // Lấy lịch sử bổ sung mô tả
     const descriptionHistory = await this.descriptionHistoryModel
       .find({ productId: product._id })
       .sort({ addedAt: 1 })
       .lean();
 
-    // Lấy 5 sản phẩm khác cùng chuyên mục
+    // Lấy 5 sản phẩm khác cùng chuyên mục (chỉ lấy những sản phẩm đã bắt đầu)
     const relatedProducts = await this.productModel
       .find({
         // If `categoryId` was populated it will be an object { _id, name }
@@ -388,6 +413,7 @@ export class ProductsService implements OnModuleInit {
         categoryId: new Types.ObjectId(product.categoryId._id),
         _id: { $ne: new Types.ObjectId(id) },
         status: 'active',
+        startTime: { $lte: now },
       })
       .limit(5)
       .select('name images currentPrice endTime bidCount')
