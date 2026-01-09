@@ -57,8 +57,15 @@ export class ProductsController {
       throw new BadRequestException('At least 4 images are required');
     }
 
+    // Convert string boolean from FormData to actual boolean using RAW req.body
+    const processedDto = {
+      ...createProductDto,
+      autoExtend: req.body.autoExtend === 'true',
+      allowUnratedBidders: req.body.allowUnratedBidders === 'true',
+    };
+
     const sellerId = req.user.userId || req.user.sub;
-    return this.productsService.create(createProductDto, sellerId, files);
+    return this.productsService.create(processedDto, sellerId, files);
   }
 
   @Get('homepage/top-ending-soon')
@@ -167,21 +174,34 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('seller')
   @ApiBearerAuth('JWT-auth')
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'images', maxCount: 4 },
+    ]),
+  )
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({ 
     summary: '[SELLER] Cập nhật sản phẩm', 
-    description: 'Seller cập nhật sản phẩm của mình (chỉ khi chưa có bid)' 
+    description: 'Seller cập nhật sản phẩm. Nếu chưa có bid: update toàn bộ (bao gồm cả hình ảnh nếu có). Nếu đã có bid: chỉ append description' 
   })
   @ApiResponse({ status: 200, description: 'Product updated successfully' })
-  @ApiResponse({ status: 400, description: 'Product already has bids' })
+  @ApiResponse({ status: 400, description: 'Product already has bids - can only add description' })
   @ApiResponse({ status: 403, description: 'Forbidden - Not product owner' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
     @Req() req,
+    @UploadedFiles() files?: { images?: Express.Multer.File[] },
   ) {
     const sellerId = req.user.userId || req.user.sub;
-    return this.productsService.update(id, updateProductDto, sellerId);
+    // Convert string boolean from FormData to actual boolean
+    const processedDto = {
+      ...updateProductDto,
+      autoExtend: req.body.autoExtend === 'true' || req.body.autoExtend === true,
+      allowUnratedBidders: req.body.allowUnratedBidders === 'true' || req.body.allowUnratedBidders === true,
+    };
+    return this.productsService.update(id, processedDto, sellerId, files);
   }
 
   @Post(':id/description')

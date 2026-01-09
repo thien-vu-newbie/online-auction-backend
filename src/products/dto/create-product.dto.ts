@@ -11,7 +11,7 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateProductDto {
   @ApiProperty({ example: 'iPhone 15 Pro Max 256GB', description: 'Tên sản phẩm' })
@@ -74,16 +74,12 @@ export class CreateProductDto {
     description: 'Tự động gia hạn khi có bid mới trước khi kết thúc 5 phút (default: false)' 
   })
   @IsOptional()
-  @IsBoolean()
-  @Type(() => Boolean)
-  autoExtend?: boolean;
+  autoExtend?: boolean | string;
 
   @ApiPropertyOptional({ 
     example: false, 
     description: 'Cho phép bidder chưa có rating đấu giá (default: false)' 
   })
   @IsOptional()
-  @IsBoolean()
-  @Type(() => Boolean)
-  allowUnratedBidders?: boolean;
+  allowUnratedBidders?: boolean | string;
 }
