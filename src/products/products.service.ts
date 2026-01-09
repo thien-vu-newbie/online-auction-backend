@@ -9,6 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { DescriptionHistory, DescriptionHistoryDocument } from './schemas/description-history.schema';
+import { Category } from '../categories/schemas/category.schema';
 import { Bid } from '../bids/schemas/bid.schema';
 import { AutoBidConfig } from '../bids/schemas/auto-bid-config.schema';
 import { Watchlist } from '../watchlist/schemas/watchlist.schema';
@@ -27,6 +28,7 @@ export class ProductsService implements OnModuleInit {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(DescriptionHistory.name) 
     private descriptionHistoryModel: Model<DescriptionHistoryDocument>,
+    @InjectModel(Category.name) private categoryModel: Model<Category>,
     @InjectModel(Bid.name) private bidsModel: Model<Bid>,
     @InjectModel(AutoBidConfig.name) private autoBidModel: Model<AutoBidConfig>,
     @InjectModel(Watchlist.name) private watchlistModel: Model<Watchlist>,
@@ -412,17 +414,34 @@ export class ProductsService implements OnModuleInit {
       .lean();
 
     // Lấy 5 sản phẩm khác cùng chuyên mục (chỉ lấy những sản phẩm đã bắt đầu)
+    // Nếu là danh mục cha, lấy tất cả sản phẩm từ các danh mục con
+    // Nếu là danh mục con, chỉ lấy sản phẩm cùng danh mục con
+    const currentCategoryId = new Types.ObjectId(product.categoryId._id);
+    
+    // Kiểm tra xem category hiện tại có phải là parent không
+    const currentCategory = await this.categoryModel.findById(currentCategoryId).lean();
+    
+    let categoryIds: Types.ObjectId[] = [currentCategoryId];
+    
+    // Nếu là parent category (parentId === null), tìm tất cả child categories
+    if (currentCategory && !currentCategory.parentId) {
+      const childCategories = await this.categoryModel
+        .find({ parentId: currentCategoryId })
+        .select('_id')
+        .lean();
+      
+      categoryIds = [currentCategoryId, ...childCategories.map(c => c._id)];
+    }
+    
     const relatedProducts = await this.productModel
       .find({
-        // If `categoryId` was populated it will be an object { _id, name }
-        // so extract the raw ObjectId to ensure the query matches correctly.
-        categoryId: new Types.ObjectId(product.categoryId._id),
+        categoryId: { $in: categoryIds },
         _id: { $ne: new Types.ObjectId(id) },
         status: 'active',
         startTime: { $lte: now },
       })
       .limit(5)
-      .select('name images currentPrice endTime bidCount')
+      .select('name images currentPrice endTime bidCount startTime')
       .lean();
 
     return {

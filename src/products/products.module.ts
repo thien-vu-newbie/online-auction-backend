@@ -9,6 +9,7 @@ import { Bid, BidSchema } from '../bids/schemas/bid.schema';
 import { AutoBidConfig, AutoBidConfigSchema } from '../bids/schemas/auto-bid-config.schema';
 import { Watchlist, WatchlistSchema } from '../watchlist/schemas/watchlist.schema';
 import { Comment, CommentSchema } from '../comments/schemas/comment.schema';
+import { Category, CategorySchema } from '../categories/schemas/category.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { CloudinaryService } from '../common/services/cloudinary.service';
 import { CategoriesModule } from '../categories/categories.module';
@@ -20,6 +21,7 @@ import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
     MongooseModule.forFeature([
       { name: Product.name, schema: ProductSchema },
       { name: DescriptionHistory.name, schema: DescriptionHistorySchema },
+      { name: Category.name, schema: CategorySchema },
       { name: Bid.name, schema: BidSchema },
       { name: AutoBidConfig.name, schema: AutoBidConfigSchema },
       { name: Watchlist.name, schema: WatchlistSchema },
