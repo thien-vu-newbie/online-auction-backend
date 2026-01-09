@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Body, Param, UseGuards, Req, Delete, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { BidsService } from './bids.service';
 import { PlaceAutoBidDto } from './dto/place-auto-bid.dto';
 import { UpdateAutoBidDto } from './dto/update-auto-bid.dto';
@@ -61,6 +62,7 @@ export class BidsController {
   }
 
   @Post('products/:productId/auto-bid')
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 auto bids per minute
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 

@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed:all": "ts-node -r tsconfig-paths/register src/data/seed-all.ts"
   },
   "dependencies": {
     "@elastic/elasticsearch": "8.11",
@@ -32,6 +33,7 @@
     "@nestjs/platform-socket.io": "^11.1.10",
     "@nestjs/schedule": "^6.0.1",
     "@nestjs/swagger": "^11.2.3",
+    "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^11.1.10",
     "@types/winston": "^2.4.4",
     "bcrypt": "^6.0.0",

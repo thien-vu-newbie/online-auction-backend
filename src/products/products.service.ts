@@ -9,6 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from './schemas/product.schema';
 import { DescriptionHistory, DescriptionHistoryDocument } from './schemas/description-history.schema';
+import { Category } from '../categories/schemas/category.schema';
 import { Bid } from '../bids/schemas/bid.schema';
 import { AutoBidConfig } from '../bids/schemas/auto-bid-config.schema';
 import { Watchlist } from '../watchlist/schemas/watchlist.schema';
@@ -27,6 +28,7 @@ export class ProductsService implements OnModuleInit {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(DescriptionHistory.name) 
     private descriptionHistoryModel: Model<DescriptionHistoryDocument>,
+    @InjectModel(Category.name) private categoryModel: Model<Category>,
     @InjectModel(Bid.name) private bidsModel: Model<Bid>,
     @InjectModel(AutoBidConfig.name) private autoBidModel: Model<AutoBidConfig>,
     @InjectModel(Watchlist.name) private watchlistModel: Model<Watchlist>,
@@ -77,13 +79,19 @@ export class ProductsService implements OnModuleInit {
 
     // Create product with currentPrice = 0 (first bid must be >= startPrice)
     const product = new this.productModel({
-      ...createProductDto,
-      sellerId: new Types.ObjectId(sellerId),
+      name: createProductDto.name,
+      description: createProductDto.description,
       categoryId: new Types.ObjectId(createProductDto.categoryId),
+      sellerId: new Types.ObjectId(sellerId),
       images: imagesUrls,
+      startPrice: createProductDto.startPrice,
       currentPrice: 0,
+      stepPrice: createProductDto.stepPrice,
+      buyNowPrice: createProductDto.buyNowPrice,
       startTime,
       endTime,
+      autoExtend: createProductDto.autoExtend ?? false,
+      allowUnratedBidders: createProductDto.allowUnratedBidders ?? false,
     });
 
     // Hooks tự động sync Elasticsearch
@@ -406,17 +414,34 @@ export class ProductsService implements OnModuleInit {
       .lean();
 
     // Lấy 5 sản phẩm khác cùng chuyên mục (chỉ lấy những sản phẩm đã bắt đầu)
+    // Nếu là danh mục cha, lấy tất cả sản phẩm từ các danh mục con
+    // Nếu là danh mục con, chỉ lấy sản phẩm cùng danh mục con
+    const currentCategoryId = new Types.ObjectId(product.categoryId._id);
+    
+    // Kiểm tra xem category hiện tại có phải là parent không
+    const currentCategory = await this.categoryModel.findById(currentCategoryId).lean();
+    
+    let categoryIds: Types.ObjectId[] = [currentCategoryId];
+    
+    // Nếu là parent category (parentId === null), tìm tất cả child categories
+    if (currentCategory && !currentCategory.parentId) {
+      const childCategories = await this.categoryModel
+        .find({ parentId: currentCategoryId })
+        .select('_id')
+        .lean();
+      
+      categoryIds = [currentCategoryId, ...childCategories.map(c => c._id)];
+    }
+    
     const relatedProducts = await this.productModel
       .find({
-        // If `categoryId` was populated it will be an object { _id, name }
-        // so extract the raw ObjectId to ensure the query matches correctly.
-        categoryId: new Types.ObjectId(product.categoryId._id),
+        categoryId: { $in: categoryIds },
         _id: { $ne: new Types.ObjectId(id) },
         status: 'active',
         startTime: { $lte: now },
       })
       .limit(5)
-      .select('name images currentPrice endTime bidCount')
+      .select('name images currentPrice endTime bidCount startTime')
       .lean();
 
     return {
@@ -431,6 +456,7 @@ export class ProductsService implements OnModuleInit {
     id: string,
     updateProductDto: UpdateProductDto,
     sellerId: string,
+    files?: { images?: Express.Multer.File[] },
   ): Promise<Product> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid product ID');
@@ -447,33 +473,97 @@ export class ProductsService implements OnModuleInit {
       throw new ForbiddenException('You can only update your own products');
     }
 
-    // Không cho phép update nếu đã có bid
+    // Nếu đã có bid, chỉ cho phép append description
     if (product.bidCount > 0) {
-      throw new BadRequestException('Cannot update product that already has bids');
+      if (updateProductDto.description) {
+        // Lưu lịch sử mô tả
+        const descriptionHistory = new this.descriptionHistoryModel({
+          productId: new Types.ObjectId(id),
+          content: updateProductDto.description,
+          addedAt: new Date(),
+        });
+        await descriptionHistory.save();
+
+        // Append vào description hiện tại
+        product.description = product.description + '\n\n' + updateProductDto.description;
+        await product.save();
+      } else {
+        throw new BadRequestException('Product already has bids. You can only add description.');
+      }
+    } else {
+      // Chưa có bid, cho phép update toàn bộ
+      
+      // Update category count nếu thay đổi category
+      if (updateProductDto.categoryId && updateProductDto.categoryId !== product.categoryId.toString()) {
+        await this.categoriesService.decrementProductCount(product.categoryId.toString());
+        await this.categoriesService.incrementProductCount(updateProductDto.categoryId);
+      }
+
+      // Nếu có description mới, thay thế hoàn toàn (không append)
+      if (updateProductDto.description !== undefined) {
+        product.description = updateProductDto.description;
+      }
+
+      // Upload new images if provided
+      if (files?.images && files.images.length > 0) {
+        // Upload images to Cloudinary
+        const uploadPromises = files.images.map((file) =>
+          this.cloudinaryService.uploadImage(file, 'products/images'),
+        );
+        const uploadResults = await Promise.all(uploadPromises);
+        const imageUrls = uploadResults.map((result) => result.secure_url);
+        
+        // Update images (first image is used as thumbnail in UI)
+        product.images = imageUrls;
+      }
+
+      // Apply other updates
+      const { description, ...restUpdates } = updateProductDto;
+      Object.assign(product, restUpdates);
+      await product.save();
     }
 
-    // Update category count nếu thay đổi category
-    if (updateProductDto.categoryId && updateProductDto.categoryId !== product.categoryId.toString()) {
-      await this.categoriesService.decrementProductCount(product.categoryId.toString());
-      await this.categoriesService.incrementProductCount(updateProductDto.categoryId);
-    }
-
-    const updatedProduct = await this.productModel.findByIdAndUpdate(
-      id,
-      updateProductDto,
-      { new: true },
-    )
+    const updatedProduct = await this.productModel.findById(id)
       .populate('sellerId', 'fullName ratingPositive ratingNegative')
       .populate('currentWinnerId', 'fullName')
       .populate('categoryId', 'name')
-      .lean();
+      .lean() as any;
 
-    // Update in Elasticsearch
+    // Update in Elasticsearch - transform to simple structure
     if (updatedProduct) {
-      await this.elasticsearchService.updateProduct(id, updatedProduct as any);
+      const esDoc = {
+        name: updatedProduct.name,
+        description: updatedProduct.description,
+        categoryId: typeof updatedProduct.categoryId === 'object' && updatedProduct.categoryId?._id
+          ? updatedProduct.categoryId._id.toString()
+          : updatedProduct.categoryId?.toString(),
+        categoryName: typeof updatedProduct.categoryId === 'object' && updatedProduct.categoryId?.name
+          ? updatedProduct.categoryId.name
+          : '',
+        sellerId: typeof updatedProduct.sellerId === 'object' && updatedProduct.sellerId?._id
+          ? updatedProduct.sellerId._id.toString()
+          : updatedProduct.sellerId?.toString(),
+        sellerName: typeof updatedProduct.sellerId === 'object' && updatedProduct.sellerId?.fullName
+          ? updatedProduct.sellerId.fullName
+          : '',
+        images: updatedProduct.images,
+        startPrice: updatedProduct.startPrice,
+        currentPrice: updatedProduct.currentPrice,
+        stepPrice: updatedProduct.stepPrice,
+        startTime: updatedProduct.startTime,
+        endTime: updatedProduct.endTime,
+        autoExtend: updatedProduct.autoExtend,
+        allowUnratedBidders: updatedProduct.allowUnratedBidders,
+        status: updatedProduct.status,
+        bidCount: updatedProduct.bidCount,
+        rejectedBidders: updatedProduct.rejectedBidders,
+        createdAt: updatedProduct.createdAt,
+        updatedAt: updatedProduct.updatedAt,
+      };
+      await this.elasticsearchService.updateProduct(id, esDoc as any);
     }
 
-    return updatedProduct!;
+    return updatedProduct;
   }
 
   async addDescription(

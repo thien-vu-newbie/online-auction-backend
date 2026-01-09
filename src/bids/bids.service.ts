@@ -262,8 +262,13 @@ export class BidsService {
     // Reload product
     const updatedProduct = await this.productModel.findById(productId);
 
+    // Kiểm tra xem người vừa đặt auto bid có đang là người dẫn đầu không
+    const isTopBidder = updatedProduct!.currentWinnerId?.toString() === bidderId;
+
     return {
-      message: 'Auto bid configured successfully',
+      message: isTopBidder 
+        ? 'Auto bid configured successfully. You are currently the top bidder!' 
+        : 'Auto bid configured successfully, but another bidder has a higher max bid.',
       autoBidConfig: {
         maxBidAmount: placeAutoBidDto.maxBidAmount,
       },
@@ -273,6 +278,7 @@ export class BidsService {
         bidCount: updatedProduct!.bidCount,
         endTime: updatedProduct!.endTime,
       },
+      isTopBidder, // Flag để frontend hiển thị thông báo phù hợp
     };
   }
 

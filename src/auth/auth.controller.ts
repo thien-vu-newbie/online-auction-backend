@@ -7,6 +7,7 @@ import {
   UseGuards,
   Res,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiTags,
@@ -34,6 +35,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute
   @ApiOperation({
     summary: 'Đăng ký tài khoản mới',
     description:
@@ -77,6 +79,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
   @ApiOperation({
     summary: 'Đăng nhập',
     description: 'Đăng nhập bằng email và mật khẩu với xác thực reCAPTCHA',
