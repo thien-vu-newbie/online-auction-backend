@@ -269,6 +269,7 @@ export class BidsService {
       message: isTopBidder 
         ? 'Auto bid configured successfully. You are currently the top bidder!' 
         : 'Auto bid configured successfully, but another bidder has a higher max bid.',
+      isTopBidder,
       autoBidConfig: {
         maxBidAmount: placeAutoBidDto.maxBidAmount,
       },
@@ -278,7 +279,6 @@ export class BidsService {
         bidCount: updatedProduct!.bidCount,
         endTime: updatedProduct!.endTime,
       },
-      isTopBidder, // Flag để frontend hiển thị thông báo phù hợp
     };
   }
 
@@ -343,6 +343,10 @@ export class BidsService {
     });
     await newBid.save();
 
+    // Lưu previousWinnerId trước khi update để gửi email outbid
+    const previousWinnerId = product.currentWinnerId?.toString();
+    const previousPrice = product.currentPrice;
+
     // Update product
     product.currentPrice = finalPrice;
     product.currentWinnerId = winnerId;
@@ -369,6 +373,28 @@ export class BidsService {
 
     // Hooks tự động sync Elasticsearch
     await product.save();
+
+    // ========== GỬI EMAIL THÔNG BÁO ==========
+    // Gửi email cho người bị outbid (nếu có)
+    if (previousWinnerId && previousWinnerId !== winnerId.toString()) {
+      try {
+        const previousWinner = await this.userModel.findById(previousWinnerId);
+        if (previousWinner) {
+          await this.mailService.sendOutbidNotification({
+            previousBidderEmail: previousWinner.email,
+            previousBidderName: previousWinner.fullName,
+            productName: product.name,
+            productId: product._id.toString(),
+            previousBidAmount: previousPrice,
+            newBidAmount: finalPrice,
+            currentPrice: finalPrice,
+          });
+        }
+      } catch (error) {
+        console.error('Error sending outbid notification:', error);
+        // Don't fail auto-bid if email fails
+      }
+    }
 
     // Nếu đạt buy now price, gửi email kết thúc đấu giá ngay lập tức
     if (isBuyNowPurchase) {
@@ -449,8 +475,12 @@ export class BidsService {
     // Reload product
     const updatedProduct = await this.productModel.findById(productId);
 
+    // Kiểm tra xem người vừa update auto bid có đang là người dẫn đầu không
+    const isTopBidder = updatedProduct!.currentWinnerId?.toString() === userId;
+
     return {
       message: 'Auto bid updated successfully',
+      isTopBidder,
       autoBidConfig: {
         maxBidAmount: result.maxBidAmount,
         isActive: result.isActive,

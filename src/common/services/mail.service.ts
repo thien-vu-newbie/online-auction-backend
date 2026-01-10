@@ -141,6 +141,7 @@ export class MailService {
     previousBidderEmail: string;
     previousBidderName: string;
     productName: string;
+    productId: string;
     previousBidAmount: number;
     newBidAmount: number;
     currentPrice: number;
@@ -149,6 +150,8 @@ export class MailService {
       console.log(`📧 [Outbid] ${data.previousBidderEmail}: Outbid on "${data.productName}" - Was ${data.previousBidAmount}, now ${data.newBidAmount}`);
       return;
     }
+
+    const productUrl = `${this.configService.get('FRONTEND_URL')}/product/${data.productId}`;
 
     await this.transporter.sendMail({
       from: this.configService.get('MAIL_FROM'),
@@ -165,6 +168,8 @@ export class MailService {
           <strong>New Bid:</strong> ${data.newBidAmount.toLocaleString()} VND<br>
           <strong>Current Price:</strong> ${data.currentPrice.toLocaleString()} VND
         </div>
+
+        <p><a href="${productUrl}" style="background-color: #ffc107; color: #000; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Place Higher Bid Now</a></p>
 
         <p>If you're still interested, you can place a higher bid to stay in the game!</p>
       `,
@@ -377,6 +382,45 @@ export class MailService {
 
         <p><a href="${productUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Discussion</a></p>
         
+        <p>Thank you for using our auction platform!</p>
+      `,
+    });
+  }
+
+  async sendDescriptionAddedToBidders(data: {
+    bidderEmail: string;
+    bidderName: string;
+    productName: string;
+    productId: string;
+    sellerName: string;
+    addedContent: string;
+  }) {
+    if (!this.transporter) {
+      console.log(`📧 [Description Added] ${data.bidderEmail}: Description updated on "${data.productName}"`);
+      return;
+    }
+
+    const productUrl = `${this.configService.get('FRONTEND_URL')}/product/${data.productId}`;
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: data.bidderEmail,
+      subject: `Product Description Updated: ${data.productName}`,
+      html: `
+        <h2>Product Description Updated</h2>
+        <p>Hello ${data.bidderName},</p>
+        <p>The seller has added more information to a product you're bidding on.</p>
+        
+        <div style="background-color: #e3f2fd; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0;">
+          <strong>Product:</strong> ${data.productName}<br>
+          <strong>Seller:</strong> ${data.sellerName}<br><br>
+          <strong>New Information:</strong><br>
+          <p style="margin-top: 10px; white-space: pre-line;">${data.addedContent}</p>
+        </div>
+
+        <p><a href="${productUrl}" style="background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Product Details</a></p>
+        
+        <p>Stay informed about the products you're interested in!</p>
         <p>Thank you for using our auction platform!</p>
       `,
     });

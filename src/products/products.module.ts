@@ -12,6 +12,7 @@ import { Comment, CommentSchema } from '../comments/schemas/comment.schema';
 import { Category, CategorySchema } from '../categories/schemas/category.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { CloudinaryService } from '../common/services/cloudinary.service';
+import { MailService } from '../common/services/mail.service';
 import { CategoriesModule } from '../categories/categories.module';
 import { ElasticsearchModule } from '../elasticsearch/elasticsearch.module';
 import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
@@ -32,7 +33,7 @@ import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
     ElasticsearchModule, // Import Elasticsearch
   ],
   controllers: [ProductsController],
-  providers: [ProductsService, CloudinaryService],
+  providers: [ProductsService, CloudinaryService, MailService],
   exports: [ProductsService],
 })
 export class ProductsModule implements OnModuleInit {

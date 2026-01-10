@@ -14,6 +14,7 @@ import { Bid } from '../bids/schemas/bid.schema';
 import { AutoBidConfig } from '../bids/schemas/auto-bid-config.schema';
 import { Watchlist } from '../watchlist/schemas/watchlist.schema';
 import { Comment } from '../comments/schemas/comment.schema';
+import { User } from '../users/schemas/user.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AddDescriptionDto } from './dto/add-description.dto';
@@ -21,6 +22,7 @@ import { SearchProductDto, SortBy } from './dto/search-product.dto';
 import { CloudinaryService } from '../common/services/cloudinary.service';
 import { CategoriesService } from '../categories/categories.service';
 import { ElasticsearchService } from '../elasticsearch/elasticsearch.service';
+import { MailService } from '../common/services/mail.service';
 
 @Injectable()
 export class ProductsService implements OnModuleInit {
@@ -33,9 +35,11 @@ export class ProductsService implements OnModuleInit {
     @InjectModel(AutoBidConfig.name) private autoBidModel: Model<AutoBidConfig>,
     @InjectModel(Watchlist.name) private watchlistModel: Model<Watchlist>,
     @InjectModel(Comment.name) private commentModel: Model<Comment>,
+    @InjectModel(User.name) private userModel: Model<User>,
     private cloudinaryService: CloudinaryService,
     private categoriesService: CategoriesService,
     private elasticsearchService: ElasticsearchService,
+    private mailService: MailService,
   ) {}
 
   async onModuleInit() {
@@ -599,6 +603,46 @@ export class ProductsService implements OnModuleInit {
     
     // Hooks tự động sync Elasticsearch
     await product.save();
+
+    // Gửi email thông báo cho tất cả bidders đang tham gia
+    try {
+      // Lấy danh sách bidders unique từ bids (chưa bị reject)
+      const bids = await this.bidsModel
+        .find({ 
+          productId: new Types.ObjectId(productId),
+          isRejected: false 
+        })
+        .populate('bidderId', 'email fullName')
+        .lean();
+
+      // Lấy unique bidder IDs
+      const uniqueBidderIds = [...new Set(bids.map(bid => bid.bidderId._id.toString()))];
+      
+      // Lấy thông tin seller
+      const seller = await this.userModel.findById(product.sellerId).lean();
+
+      // Gửi email cho từng bidder
+      for (const bid of bids) {
+        const bidder = bid.bidderId as any;
+        if (!uniqueBidderIds.includes(bidder._id.toString())) continue;
+        
+        // Remove from array to avoid duplicate emails
+        const index = uniqueBidderIds.indexOf(bidder._id.toString());
+        if (index > -1) uniqueBidderIds.splice(index, 1);
+
+        await this.mailService.sendDescriptionAddedToBidders({
+          bidderEmail: bidder.email,
+          bidderName: bidder.fullName,
+          productName: product.name,
+          productId: productId,
+          sellerName: seller?.fullName || 'Seller',
+          addedContent: addDescriptionDto.content,
+        });
+      }
+    } catch (error) {
+      console.error('Error sending description update emails:', error);
+      // Don't fail the request if email sending fails
+    }
 
     return {
       message: 'Description added successfully',

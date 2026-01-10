@@ -1223,6 +1223,36 @@ export async function seedBids(
       isRejected: false,
       bidTime: new Date(now.getTime() - 1 * 60 * 60 * 1000),
     },
+
+    // ========== Product 30: iPad Pro M4 11 inch (4 bids) ==========
+    {
+      productId: products[30]._id,
+      bidderId: bidders[0]._id,
+      bidAmount: 5200000,
+      isRejected: false,
+      bidTime: new Date(now.getTime() - 9 * 60 * 60 * 1000),
+    },
+    {
+      productId: products[30]._id,
+      bidderId: bidders[2]._id,
+      bidAmount: 5400000,
+      isRejected: false,
+      bidTime: new Date(now.getTime() - 6 * 60 * 60 * 1000),
+    },
+    {
+      productId: products[30]._id,
+      bidderId: bidders[1]._id,
+      bidAmount: 5600000,
+      isRejected: false,
+      bidTime: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+    },
+    {
+      productId: products[30]._id,
+      bidderId: bidders[3]._id,
+      bidAmount: 5800000,
+      isRejected: false,
+      bidTime: new Date(now.getTime() - 30 * 60 * 1000),
+    },
   ]);
 
   console.log(`   ✅ Created ${bids.length} bids`);
@@ -1262,6 +1292,7 @@ export async function seedBids(
     { index: 27, bidCount: 6, currentPrice: 56000000, winnerId: bidders[3]._id },
     { index: 28, bidCount: 5, currentPrice: 17500000, winnerId: bidders[2]._id },
     { index: 29, bidCount: 5, currentPrice: 27500000, winnerId: bidders[1]._id },
+    { index: 30, bidCount: 4, currentPrice: 5800000, winnerId: bidders[3]._id },
   ];
 
   for (const update of productUpdates) {

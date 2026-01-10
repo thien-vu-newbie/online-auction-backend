@@ -728,6 +728,31 @@ export async function seedProducts(
       status: 'active',
       bidCount: 0,
     },
+
+    // iPad Pro M4 bổ sung
+    {
+      name: 'iPad Pro M4',
+      description:
+        '<p>iPad Pro với chip M4 mạnh mẽ, màn hình Ultra Retina XDR, thiết kế mỏng nhẹ.</p><ul><li>Chip M4 thế hệ mới</li><li>Màn hình Ultra Retina XDR 11 inch</li><li>Camera 12MP với LiDAR</li><li>Hỗ trợ Apple Pencil Pro</li><li>USB-C Thunderbolt</li></ul>',
+      categoryId: categories.children[2]._id, // Máy tính bảng
+      sellerId: users.sellers[0]._id,
+      images: [
+        'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800',
+        'https://2tmobile.com/wp-content/uploads/2024/04/ipad-pro-2024-m4-silver-space-black-2tmobile.jpg',
+        'https://images.unsplash.com/photo-1561154464-82e9adf32764?w=800',
+        'https://images.unsplash.com/photo-1587033411391-5d9e51cce126?w=800',
+      ],
+      startPrice: 5000000,
+      currentPrice: 5000000,
+      stepPrice: 200000,
+      buyNowPrice: 20000000,
+      startTime: now,
+      endTime: endTime2027,
+      autoExtend: true,
+      allowUnratedBidders: true,
+      status: 'active',
+      bidCount: 0,
+    },
   ]);
 
   console.log(`   ✅ Created ${products.length} products`);

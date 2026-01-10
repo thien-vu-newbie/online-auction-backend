@@ -8,7 +8,7 @@ export async function seedUsers(userModel: Model<User>) {
   // Clear existing users
   await userModel.deleteMany({});
   
-  const hashedPassword = await bcrypt.hash('Password123!', 10);
+  const hashedPassword = await bcrypt.hash('Password123', 10);
 
   const users = await userModel.insertMany([
     // Admin
@@ -86,8 +86,8 @@ export async function seedUsers(userModel: Model<User>) {
     },
     // Bidders
     {
-      fullName: 'Nguyen Van A',
-      email: 'nguyenvana@gmail.com',
+      fullName: 'Thien bidder 1',
+      email: 'thienvu0210@gmail.com',
       password: hashedPassword,
       role: 'bidder',
       isEmailVerified: true,
@@ -97,15 +97,15 @@ export async function seedUsers(userModel: Model<User>) {
       ratingNegative: 5,
     },
     {
-      fullName: 'Tran Thi B',
-      email: 'tranthib@gmail.com',
+      fullName: 'Bidder 2',
+      email: 'bidder2@gmail.com',
       password: hashedPassword,
       role: 'bidder',
       isEmailVerified: true,
       address: '34 Le Loi, Q3, TP.HCM',
       dateOfBirth: new Date('1998-08-20'),
-      ratingPositive: 30,
-      ratingNegative: 2,
+      ratingPositive: 0,
+      ratingNegative: 0,
     },
     {
       fullName: 'Le Van C',
