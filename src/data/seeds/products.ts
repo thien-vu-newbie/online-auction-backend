@@ -729,7 +729,7 @@ export async function seedProducts(
       bidCount: 0,
     },
 
-    // iPad Pro M4 bổ sung
+    
     {
       name: 'iPad Pro M4',
       description:

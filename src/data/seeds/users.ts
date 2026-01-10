@@ -86,8 +86,8 @@ export async function seedUsers(userModel: Model<User>) {
     },
     // Bidders
     {
-      fullName: 'Thien bidder 1',
-      email: 'thienvu0210@gmail.com',
+      fullName: 'normal bidder',
+      email: 'normalbid1@gmail.com',
       password: hashedPassword,
       role: 'bidder',
       isEmailVerified: true,

@@ -168,13 +168,14 @@ export class ElasticsearchService {
     const must: any[] = [];
 
     if (query) {
-      must.push({
-        multi_match: {
-          query,
-          fields: ['name^5', 'description^2'],
-          fuzziness: 'AUTO',
-        },
-      });
+        must.push({
+    multi_match: {
+      query,
+      fields: ['name^5', 'description^2'],
+      operator: 'and',   
+      fuzziness: 'AUTO',
+    },
+  });
     }
 
     if (categoryId) {
@@ -224,11 +225,21 @@ export class ElasticsearchService {
         },
       } as any);
 
+      console.log('=== ES RAW RESPONSE ===');
+      console.log('First hit _source:', hits.hits[0]?._source);
+      console.log('First hit _id:', hits.hits[0]?._id);
+      console.log('======================');
+
       const products = hits.hits.map((hit: any) => ({
         _id: hit._source.id,
         ...hit._source,
         _score: hit._score,
       }));
+
+      console.log('=== ES MAPPED PRODUCTS ===');
+      console.log('First product _id:', products[0]?._id);
+      console.log('First product id:', products[0]?.id);
+      console.log('==========================');
 
       return {
         products,

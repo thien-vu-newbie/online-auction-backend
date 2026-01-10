@@ -223,35 +223,55 @@ export class ProductsService implements OnModuleInit {
       limit,
     });
 
+    console.log('=== SEARCH DEBUG ===');
+    console.log('sortBy:', sortBy);
+    console.log('ES returned products:', esProducts.length);
+    console.log('ES total:', total);
+
     // Get full product details from MongoDB
     const productIds = esProducts.map(p => new Types.ObjectId(p.id || p._id));
 
-    const products = await this.productModel
+    let products = await this.productModel
       .find({ _id: { $in: productIds } })
       .populate('sellerId', 'fullName ratingPositive ratingNegative')
       .populate('currentWinnerId', 'fullName')
       .populate('categoryId', 'name')
       .lean();
 
-    // Maintain Elasticsearch order and filter out products missing in MongoDB
-    const productMap = new Map(products.map(p => [p._id.toString(), p]));
-    const orderedProducts = productIds
-      .map(id => productMap.get(id.toString()))
-      .filter(p => p);
+    console.log('MongoDB returned products:', products.length);
 
-    // If Elasticsearch index contains stale documents (deleted in MongoDB),
-    // adjust the total so it reflects actual returned products.
-    // hitsTotal is ES total (could be object or number)
-    const hitsTotal = total;
-    const returnedFromEs = esProducts.length; // number of hits returned from ES for this page
-    const foundInDb = products.length; // number of those hits that exist in MongoDB
+    // Sort the MongoDB results to match the sort criteria
+    // (MongoDB $in doesn't preserve order, so we must sort after fetch)
+    switch (sortBy) {
+      case SortBy.END_TIME_DESC:
+        products.sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+        break;
+      case SortBy.PRICE_ASC:
+        products.sort((a, b) => a.currentPrice - b.currentPrice);
+        break;
+      case SortBy.CREATED_DESC:
+      default:
+        products.sort((a, b) => {
+          const aCreated = (a as any).createdAt || a._id.getTimestamp();
+          const bCreated = (b as any).createdAt || b._id.getTimestamp();
+          return new Date(bCreated).getTime() - new Date(aCreated).getTime();
+        });
+        break;
+    }
+
+    console.log('After sort, products:', products.length);
+    console.log('==================');
+
+    // Filter out any products that were in ES but not in MongoDB
+    const returnedFromEs = esProducts.length;
+    const foundInDb = products.length;
     const missingFromDb = Math.max(0, returnedFromEs - foundInDb);
 
     // `total` from ElasticsearchService.search is a number here.
     const adjustedTotal = Math.max(0, total - missingFromDb);
 
     return {
-      products: orderedProducts,
+      products: products,
       total: adjustedTotal,
       page,
       totalPages: Math.ceil(adjustedTotal / limit),
