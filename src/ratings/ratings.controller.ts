@@ -94,4 +94,21 @@ export class RatingsController {
   getRatingsForProduct(@Param('productId') productId: string) {
     return this.ratingsService.getRatingsForProduct(productId);
   }
+
+  @Get('users/:userId')
+  @ApiOperation({ 
+    summary: '[PUBLIC] Xem đánh giá của người dùng', 
+    description: 'Xem tất cả đánh giá mà người dùng này nhận được (với phân trang)' 
+  })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'List of received ratings with summary' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  getUserRatings(
+    @Param('userId') userId: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
+    return this.ratingsService.getUserRatings(userId, parseInt(page), parseInt(limit));
+  }
 }

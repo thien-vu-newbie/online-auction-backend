@@ -76,16 +76,15 @@ export class BidsService {
       .sort({ bidTime: -1 })
       .lean();
 
-    // Return full bid data with bidderId for seller actions
+    // Return full bid data with bidderId for seller actions (NO MASKING - seller sees full names)
     const fullBids = bids.map(bid => {
       const bidder = bid.bidderId as any;
       const fullName = bidder?.fullName || 'Unknown';
-      const maskedName = this.maskName(fullName);
 
       return {
         _id: bid._id.toString(),
         bidderId: bidder?._id?.toString() || '',
-        bidderName: maskedName,
+        bidderName: fullName, // Full name for seller, not masked
         bidAmount: bid.bidAmount,
         bidTime: bid.bidTime,
         isRejected: bid.isRejected,

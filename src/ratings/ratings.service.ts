@@ -209,6 +209,51 @@ export class RatingsService {
     };
   }
 
+  async getUserRatings(userId: string, page: number = 1, limit: number = 10) {
+    // Check if user exists
+    const user = await this.userModel.findById(userId).select('fullName email ratingPositive ratingNegative').lean();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [ratings, total] = await Promise.all([
+      this.ratingModel
+        .find({ toUserId: new Types.ObjectId(userId) })
+        .populate('fromUserId', 'fullName email')
+        .populate('productId', 'name')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.ratingModel.countDocuments({ toUserId: new Types.ObjectId(userId) }),
+    ]);
+
+    const totalRatings = (user?.ratingPositive || 0) + (user?.ratingNegative || 0);
+    const ratingPercentage = totalRatings > 0 ? ((user?.ratingPositive || 0) / totalRatings) * 100 : 0;
+
+    return {
+      user: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+      },
+      ratings,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: limit,
+      },
+      summary: {
+        ratingPositive: user?.ratingPositive || 0,
+        ratingNegative: user?.ratingNegative || 0,
+        ratingPercentage: parseFloat(ratingPercentage.toFixed(1)),
+      },
+    };
+  }
+
   private async updateUserRatingCounts(userId: string) {
     // Aggregate all ratings for this user
     const result = await this.ratingModel.aggregate([

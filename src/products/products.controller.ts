@@ -21,6 +21,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { AddDescriptionDto } from './dto/add-description.dto';
 import { SearchProductDto } from './dto/search-product.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RequireSellerActive } from '../common/decorators/require-seller-active.decorator';
@@ -159,6 +160,7 @@ export class ProductsController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ 
     summary: '[PUBLIC] Xem chi tiết sản phẩm', 
     description: 'Hiển thị đầy đủ thông tin sản phẩm + lịch sử mô tả + 5 sản phẩm liên quan. Chỉ xem được nếu startTime <= now, trừ khi là seller của sản phẩm.' 

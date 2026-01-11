@@ -458,11 +458,32 @@ export class ProductsService implements OnModuleInit {
       .select('name images currentPrice endTime bidCount startTime')
       .lean();
 
+    // Mask winner name for non-sellers (che tên người thắng nếu không phải seller)
+    if (!isSeller && product.currentWinnerId) {
+      const winner = product.currentWinnerId as any;
+      if (winner && winner.fullName) {
+        // Create new object to avoid mutating original
+        product.currentWinnerId = {
+          ...winner,
+          fullName: this.maskName(winner.fullName),
+        };
+      }
+    }
+
     return {
       ...product,
       descriptionHistory,
       relatedProducts,
     };
+  }
+
+  private maskName(fullName: string): string {
+    // Mask tên: "Nguyễn Văn Khoa" -> "****Khoa"
+    const parts = fullName.trim().split(' ');
+    if (parts.length === 0) return '****';
+    
+    const lastName = parts[parts.length - 1];
+    return `****${lastName}`;
   }
 
   // Seller: Cập nhật sản phẩm (chỉ khi là owner)
