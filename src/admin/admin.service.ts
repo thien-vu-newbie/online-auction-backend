@@ -8,6 +8,8 @@ import { Category, CategoryDocument } from '../categories/schemas/category.schem
 import { UpgradeSellerDto } from './dto/upgrade-seller.dto';
 import { UpdateConfigDto } from './dto/update-config.dto';
 import { DashboardStatsDto } from './dto/dashboard-stats.dto';
+import { MailService } from '../common/services/mail.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
@@ -16,6 +18,7 @@ export class AdminService {
     @InjectModel(AdminConfig.name) private adminConfigModel: Model<AdminConfigDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
+    private mailService: MailService,
   ) {}
 
 
@@ -114,6 +117,65 @@ export class AdminService {
     }
 
     return user;
+  }
+
+  async deleteUser(userId: string) {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === 'admin') {
+      throw new BadRequestException('Cannot delete admin user');
+    }
+
+    const activeProducts = await this.productModel.countDocuments({
+      sellerId: user._id,
+      status: 'active',
+      endTime: { $gt: new Date() },
+    });
+
+    if (activeProducts > 0) {
+      throw new BadRequestException(
+        `Cannot delete user with ${activeProducts} active product(s). Please wait until auctions end.`,
+      );
+    }
+
+    await this.userModel.findByIdAndDelete(userId);
+
+    return { message: 'User deleted successfully', userId };
+  }
+
+  async resetUserPassword(userId: string) {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === 'admin') {
+      throw new BadRequestException('Cannot reset admin password');
+    }
+
+    if (user.googleId && !user.password) {
+      throw new BadRequestException('This user uses Google Sign-In and has no password to reset');
+    }
+
+    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    user.password = hashedPassword;
+    user.refreshToken = undefined;
+    await user.save();
+
+    await this.mailService.sendPasswordReset(user.email, user.fullName, tempPassword);
+
+    return {
+      message: 'Password has been reset and sent to user email',
+      userId: user._id,
+      email: user.email,
+    };
   }
 
   // ============ Admin Config Methods ============
