@@ -223,11 +223,6 @@ export class ProductsService implements OnModuleInit {
       limit,
     });
 
-    console.log('=== SEARCH DEBUG ===');
-    console.log('sortBy:', sortBy);
-    console.log('ES returned products:', esProducts.length);
-    console.log('ES total:', total);
-
     // Get full product details from MongoDB
     const productIds = esProducts.map(p => new Types.ObjectId(p.id || p._id));
 
@@ -237,8 +232,6 @@ export class ProductsService implements OnModuleInit {
       .populate('currentWinnerId', 'fullName')
       .populate('categoryId', 'name')
       .lean();
-
-    console.log('MongoDB returned products:', products.length);
 
     // Sort the MongoDB results to match the sort criteria
     // (MongoDB $in doesn't preserve order, so we must sort after fetch)
@@ -258,9 +251,6 @@ export class ProductsService implements OnModuleInit {
         });
         break;
     }
-
-    console.log('After sort, products:', products.length);
-    console.log('==================');
 
     // Filter out any products that were in ES but not in MongoDB
     const returnedFromEs = esProducts.length;
