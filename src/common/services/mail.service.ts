@@ -69,6 +69,27 @@ export class MailService {
     });
   }
 
+  async sendPasswordReset(email: string, fullName: string, tempPassword: string) {
+    if (!this.transporter) {
+      console.log(`⚠️  Email not configured - Temporary password for ${email} is: ${tempPassword}`);
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.configService.get('MAIL_FROM'),
+      to: email,
+      subject: 'Your Password Has Been Reset - Online Auction',
+      html: `
+        <h2>Password Reset by Admin</h2>
+        <p>Hello ${fullName},</p>
+        <p>Your password has been reset by an administrator.</p>
+        <p>Your new temporary password is: <strong>${tempPassword}</strong></p>
+        <p style="color: #e74c3c;"><strong>⚠️ Please change this password immediately after logging in.</strong></p>
+        <p>If you did not expect this, please contact support immediately.</p>
+      `,
+    });
+  }
+
   // ============= AUCTION EMAIL NOTIFICATIONS =============
 
   async sendBidPlacedToSeller(data: {

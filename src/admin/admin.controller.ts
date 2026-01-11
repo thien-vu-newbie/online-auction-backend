@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Query, UseGuards, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, UseGuards, Patch, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { UpgradeSellerDto } from './dto/upgrade-seller.dto';
@@ -54,6 +54,30 @@ export class AdminController {
   @ApiResponse({ status: 404, description: 'User not found' })
   getUserById(@Param('id') id: string) {
     return this.adminService.getUserById(id);
+  }
+
+  @Delete('users/:id')
+  @ApiOperation({ 
+    summary: '[ADMIN] Xóa user', 
+    description: 'Admin xóa user. Không thể xóa admin hoặc user có sản phẩm đang đấu giá' 
+  })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot delete admin or user with active products' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  deleteUser(@Param('id') id: string) {
+    return this.adminService.deleteUser(id);
+  }
+
+  @Post('users/:id/reset-password')
+  @ApiOperation({ 
+    summary: '[ADMIN] Reset mật khẩu user', 
+    description: 'Admin reset mật khẩu user và gửi mật khẩu mới qua email' 
+  })
+  @ApiResponse({ status: 200, description: 'Password reset and sent to user email' })
+  @ApiResponse({ status: 400, description: 'Cannot reset admin password or Google user' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  resetUserPassword(@Param('id') id: string) {
+    return this.adminService.resetUserPassword(id);
   }
 
   @Get('config')
