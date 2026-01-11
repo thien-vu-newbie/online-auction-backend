@@ -30,7 +30,7 @@ export class AuthService {
 
   private async generateTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
-    
+
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_SECRET,

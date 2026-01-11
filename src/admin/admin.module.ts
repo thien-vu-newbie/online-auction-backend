@@ -6,6 +6,7 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { AdminConfig, AdminConfigSchema } from './schemas/admin-config.schema';
 import { Product, ProductSchema } from '../products/schemas/product.schema';
 import { Category, CategorySchema } from '../categories/schemas/category.schema';
+import { MailService } from '../common/services/mail.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { Category, CategorySchema } from '../categories/schemas/category.schema'
     ]),
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, MailService],
   exports: [AdminService],
 })
 export class AdminModule {}
